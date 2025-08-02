@@ -12,6 +12,7 @@ import {
 import {
   Calendar1,
   CalendarClock,
+  CalendarDays,
   ChevronDownIcon,
   ChevronsUpDown,
   ClipboardList,
@@ -120,11 +121,6 @@ function TurnosModal({ className }: Props) {
     }
   };
 
-  useEffect(() => {
-    fetchClientes();
-    fetchTratamientos();
-  }, []);
-
   const horaInicio = form.watch("horaInicio");
   const tratamientosSeleccionados = form.watch("tratamientos");
 
@@ -204,6 +200,8 @@ function TurnosModal({ className }: Props) {
     }
   };
 
+  const capitalizar = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+
   return (
     <>
       <Dialog
@@ -212,6 +210,9 @@ function TurnosModal({ className }: Props) {
             form.reset({
               fecha: undefined
             })
+          } else {
+            fetchClientes()
+            fetchTratamientos()
           }
         }}
       >
@@ -221,7 +222,7 @@ function TurnosModal({ className }: Props) {
             <span>Agendar turno</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-full min-w-xl">
+        <DialogContent className="w-96">
           <Toaster position="bottom-center" />
           <DialogHeader>
             <DialogTitle className="flex gap-2 items-center">
@@ -235,7 +236,7 @@ function TurnosModal({ className }: Props) {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="clienteId"
@@ -245,12 +246,11 @@ function TurnosModal({ className }: Props) {
                   return (
                     <FormItem>
                       <FormLabel>
-                        <User size={16} />
                         <span>Cliente</span>
                       </FormLabel>
                       <FormControl>
                         <Popover modal>
-                          <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
+                          <PopoverTrigger asChild className="min-w-full data-[state=open]:border-primary border-2">
                             <Button
                               variant="outline"
                               role="combobox"
@@ -262,12 +262,17 @@ function TurnosModal({ className }: Props) {
                             >
                               {selectedCliente
                                 ? `${selectedCliente.nombre} ${selectedCliente.apellido}`
-                                : "Seleccionar cliente"}
+                                : (
+                                  <div className="flex items-center gap-2">
+                                    <User size={10} />
+                                    Seleccionar cliente
+                                  </div>
+                                )}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-72 p-0">
-                            <Command>
+                          <PopoverContent className="p-0">
+                            <Command className="min-w-full">
                               <CommandInput placeholder="Buscar cliente..." autoFocus />
                               <CommandEmpty>No se encontró ningún cliente.</CommandEmpty>
                               <CommandGroup>
@@ -299,18 +304,17 @@ function TurnosModal({ className }: Props) {
                 render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>
-                      <ClipboardList size={16} />
                       <span>Tratamientos</span>
                     </FormLabel>
                     <FormControl>
                       <Popover modal open={openTratamientos} onOpenChange={setOpenTratamientos}>
-                        <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
+                        <PopoverTrigger asChild className="min-w-full data-[state=open]:border-primary border-2">
                           <Button
                             variant="outline"
                             role="combobox"
                             aria-expanded={openTratamientos}
                             className={cn(
-                              "w-72 justify-between hover:bg-transparent hover:text-inherit font-normal",
+                              "justify-between hover:bg-transparent hover:text-inherit font-normal",
                               !field.value.length && "text-muted-foreground",
                               fieldState.invalid && "border-destructive ring-destructive focus-visible:ring-destructive"
                             )}
@@ -321,7 +325,12 @@ function TurnosModal({ className }: Props) {
                                   .filter((t) => field.value.includes(t.id))
                                   .map((t) => t.nombre)
                                   .join(", ")
-                                : "Seleccionar tratamientos"}
+                                : (
+                                  <div className="flex items-center gap-2">
+                                    <ClipboardList size={10} />
+                                    Seleccionar tratamientos
+                                  </div>
+                                )}
                             </span>
                             <ChevronsUpDown className="opacity-50" />
                           </Button>
@@ -363,64 +372,72 @@ function TurnosModal({ className }: Props) {
                 )}
               />
 
-              <div className="flex justify-between">
-                <FormField
-                  control={form.control}
-                  name="fecha"
-                  render={({ field, fieldState }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>
-                        <Calendar1 size={16} className="inline mr-1" />
-                        Fecha
-                      </FormLabel>
-                      <FormControl>
-                        <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
-                          <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-48 justify-between font-normal text-muted-foreground hover:bg-transparent hover:text-inherit",
-                                fieldState.invalid && "border-destructive ring-destructive focus-visible:ring-destructive"
+              <FormField
+                control={form.control}
+                name="fecha"
+                render={({ field, fieldState }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>
+                      Fecha
+                    </FormLabel>
+                    <FormControl>
+                      <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
+                        <PopoverTrigger asChild className="min-w-full data-[state=open]:border-primary border-2">
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-48 justify-between font-normal text-muted-foreground hover:bg-transparent hover:text-inherit",
+                              fieldState.invalid && "border-destructive ring-destructive focus-visible:ring-destructive"
+                            )}
+                          >
+                            {field.value
+                              ? capitalizar(field.value.toLocaleDateString("es-AR", {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              }))
+                              : (
+                                <div className="flex items-center gap-2">
+                                  <CalendarDays size={10} />
+                                  DD/MM/AAAA
+                                </div>
                               )}
-                            >
-                              {field.value
-                                ? field.value.toLocaleDateString()
-                                : "DD/MM/YYYY"}
-                              <ChevronDownIcon className="opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              locale={es}
-                              mode="single"
-                              selected={field.value ?? undefined}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                                setOpenCalendar(false);
-                              }}
-                              disabled={(date) => dayjs(date).isBefore(dayjs().startOf("day"))}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                            <ChevronDownIcon className="opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            locale={es}
+                            mode="single"
+                            selected={field.value ?? undefined}
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              setOpenCalendar(false);
+                            }}
+                            disabled={(date) => dayjs(date).isBefore(dayjs().startOf("day"))}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
+              <div className="flex justify-between items-center">
                 <FormField
                   control={form.control}
                   name="horaInicio"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        <Clock3 size={16} className="inline mr-1" />
                         Hora Inicio
                       </FormLabel>
                       <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger className="w-36 cursor-pointer cursor-data-[state=open]:border-primary border-2">
-                            <SelectValue placeholder="Elegir" />
+                          <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary border-2">
+                            <SelectValue placeholder="HH:MM" />
                           </SelectTrigger>
                           <SelectContent className="max-h-72">
                             {horasDisponibles.map((hora) => (
@@ -438,6 +455,7 @@ function TurnosModal({ className }: Props) {
                     </FormItem>
                   )}
                 />
+                <Separator className="w-4 mt-6" />
 
                 <FormField
                   control={form.control}
@@ -448,13 +466,12 @@ function TurnosModal({ className }: Props) {
                     return (
                       <FormItem>
                         <FormLabel>
-                          <Clock9 size={16} className="inline mr-1" />
                           Hora Fin
                         </FormLabel>
                         <FormControl>
                           <Select onValueChange={field.onChange} value={field.value} disabled={!horaInicio}>
                             <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary border-2">
-                              <SelectValue placeholder="Elegir" />
+                              <SelectValue placeholder="HH:MM" />
                             </SelectTrigger>
                             <SelectContent className="max-h-72">
                               {horasDisponibles.map((hora) => {

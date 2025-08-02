@@ -30,6 +30,17 @@
   .table-button {
     @apply hover:bg-transparent hover:text-inherit;
   }
+
+  .pattern {
+    @apply col-start-2 row-span-5 row-start-1 bg-fixed;
+    border-color: var(--primary);
+    background-image: repeating-linear-gradient(315deg,
+        var(--primary) 0,
+        var(--primary) 1px,
+        transparent 0,
+        transparent 50%);
+    background-size: 10px 10px;
+  }
 }
 
 @layer components {
@@ -67,16 +78,6 @@
   @apply p-0 pr-[9px]
 }
 
-.pattern {
-  @apply col-start-2 row-span-5 row-start-1 bg-fixed;
-  border-color: var(--primary);
-  background-image: repeating-linear-gradient(315deg,
-      var(--primary) 0,
-      var(--primary) 1px,
-      transparent 0,
-      transparent 50%);
-  background-size: 10px 10px;
-}
 
 .rbc-off-range-bg {
   @apply bg-muted/40
