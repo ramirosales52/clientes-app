@@ -42,6 +42,7 @@ import { cn } from "@render/lib/utils";
 import { Separator } from "./ui/separator";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "./ui/command";
 import dayjs from "dayjs";
+import { toast } from "sonner";
 
 type Props = {
   className?: string;
@@ -124,48 +125,42 @@ function TurnosModal({ className }: Props) {
     fetchTratamientos();
   }, []);
 
-  const fecha = form.watch("fecha");
   const horaInicio = form.watch("horaInicio");
+  const tratamientosSeleccionados = form.watch("tratamientos");
 
   useEffect(() => {
-    const tratamientosSeleccionados = tratamientos.filter((t) =>
-      form.watch("tratamientos")?.includes(t.id)
-    );
-
-    const totalDuracion = tratamientosSeleccionados.reduce(
-      (acc, t) => acc + t.duracion,
-      0
-    );
-
-
-    if (fecha && horaInicio && totalDuracion) {
-      const [hora, minuto] = horaInicio.split(":").map(Number);
-      const inicio = new Date(fecha);
-      inicio.setHours(hora, minuto, 0, 0);
-
-      const fin = new Date(inicio.getTime() + totalDuracion * 60000);
-
-      // Redondeamos a bloques de 30 minutos
-      const minutos = fin.getMinutes();
-      const redondeado = new Date(fin);
-      redondeado.setMinutes(minutos < 15 ? 0 : minutos < 45 ? 30 : 60);
-      if (redondeado.getMinutes() === 60) {
-        redondeado.setMinutes(0);
-        redondeado.setHours(redondeado.getHours() + 1);
-      }
-
-      const horaFinStr = redondeado.toTimeString().slice(0, 5); // ej: "14:30"
-
-      // Solo setear si esa hora existe en las opciones disponibles
-      if (horasDisponibles.includes(horaFinStr)) {
-        form.setValue("horaFin", horaFinStr);
-      }
+    if (!tratamientosSeleccionados?.length) {
+      form.setValue("horaFin", "", { shouldDirty: true });
+      return;
     }
-  }, [
-    form.watch("horaInicio"),
-    form.watch("tratamientos"),
-    form.watch("fecha"),
-  ]);
+
+    if (!horaInicio) return;
+
+    const duracionTotal = tratamientos
+      .filter((t) => tratamientosSeleccionados.includes(t.id))
+      .reduce((total, t) => total + t.duracion, 0);
+
+    if (!duracionTotal) return;
+
+    const [hora, minuto] = horaInicio.split(":").map(Number);
+    const inicio = new Date();
+    inicio.setHours(hora, minuto, 0, 0);
+
+    const fin = new Date(inicio.getTime() + duracionTotal * 60000);
+
+    const horaFinStr = fin.toTimeString().slice(0, 5);
+
+    if (horasDisponibles.includes(horaFinStr)) {
+      form.setValue("horaFin", horaFinStr);
+    } else {
+      form.setValue("horaFin", "")
+      toast.error("Fuera del horario de trabajo")
+    }
+    if (!tratamientosSeleccionados.length) {
+      form.setValue("horaFin", "")
+    }
+
+  }, [tratamientosSeleccionados, horaInicio]);
 
   function horaStringAMinutos(hora: string): number {
     const [h, m] = hora.split(":").map(Number);
@@ -193,35 +188,41 @@ function TurnosModal({ className }: Props) {
     const payload = {
       fechaInicio,
       fechaFin,
-      tratamientosIds: tratamientos, // renombrado para el DTO
-      ...resto, // clienteId, estado?, notas?
+      tratamientosIds: tratamientos,
+      ...resto,
     };
 
     try {
       const res = await axios.post("http://localhost:3000/turnos", payload);
-      console.log("✅ Turno creado:", res.data);
+      console.log("Turno creado:", res.data);
+      form.reset({
+        fecha: undefined
+      })
+      toast.success(`Turno creado el dia ${fecha.toLocaleDateString("es-AR")} a las ${horaInicio}`)
     } catch (err) {
-      console.error("❌ Error al crear turno:", err);
+      console.error("Error al crear turno:", err);
     }
   };
 
   return (
     <>
-      <Toaster position="bottom-center" />
       <Dialog
         onOpenChange={(isOpen) => {
           if (!isOpen) {
-            form.reset()
+            form.reset({
+              fecha: undefined
+            })
           }
         }}
       >
         <DialogTrigger className={className} asChild>
-          <Button className={className} variant="secondary">
+          <Button className={className}>
             <CalendarClock />
             <span>Agendar turno</span>
           </Button>
         </DialogTrigger>
         <DialogContent className="w-full min-w-xl">
+          <Toaster position="bottom-center" />
           <DialogHeader>
             <DialogTitle className="flex gap-2 items-center">
               <CalendarClock size={22} />
@@ -249,7 +250,7 @@ function TurnosModal({ className }: Props) {
                       </FormLabel>
                       <FormControl>
                         <Popover modal>
-                          <PopoverTrigger asChild className="data-[state=open]:border-primary">
+                          <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
                             <Button
                               variant="outline"
                               role="combobox"
@@ -291,6 +292,7 @@ function TurnosModal({ className }: Props) {
                   );
                 }}
               />
+
               <FormField
                 control={form.control}
                 name="tratamientos"
@@ -302,7 +304,7 @@ function TurnosModal({ className }: Props) {
                     </FormLabel>
                     <FormControl>
                       <Popover modal open={openTratamientos} onOpenChange={setOpenTratamientos}>
-                        <PopoverTrigger asChild className="data-[state=open]:border-primary">
+                        <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
                           <Button
                             variant="outline"
                             role="combobox"
@@ -313,12 +315,14 @@ function TurnosModal({ className }: Props) {
                               fieldState.invalid && "border-destructive ring-destructive focus-visible:ring-destructive"
                             )}
                           >
-                            {field.value.length > 0
-                              ? tratamientos
-                                .filter((t) => field.value.includes(t.id))
-                                .map((t) => t.nombre)
-                                .join(", ")
-                              : "Seleccionar tratamientos"}
+                            <span className="truncate block max-w-[90%] overflow-hidden whitespace-nowrap text-left">
+                              {field.value.length > 0
+                                ? tratamientos
+                                  .filter((t) => field.value.includes(t.id))
+                                  .map((t) => t.nombre)
+                                  .join(", ")
+                                : "Seleccionar tratamientos"}
+                            </span>
                             <ChevronsUpDown className="opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -371,30 +375,30 @@ function TurnosModal({ className }: Props) {
                       </FormLabel>
                       <FormControl>
                         <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
-                          <PopoverTrigger asChild className="data-[state=open]:border-primary">
+                          <PopoverTrigger asChild className="data-[state=open]:border-primary border-2">
                             <Button
                               variant="outline"
                               className={cn(
-                                "border w-48 justify-between font-normal text-muted-foreground hover:bg-transparent hover:text-inherit",
+                                "w-48 justify-between font-normal text-muted-foreground hover:bg-transparent hover:text-inherit",
                                 fieldState.invalid && "border-destructive ring-destructive focus-visible:ring-destructive"
                               )}
                             >
                               {field.value
                                 ? field.value.toLocaleDateString()
-                                : "Seleccionar fecha"}
+                                : "DD/MM/YYYY"}
                               <ChevronDownIcon className="opacity-50" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
+                              locale={es}
                               mode="single"
-                              selected={field.value}
+                              selected={field.value ?? undefined}
                               onSelect={(date) => {
                                 field.onChange(date);
                                 setOpenCalendar(false);
                               }}
-                              locale={es}
-
+                              disabled={(date) => dayjs(date).isBefore(dayjs().startOf("day"))}
                             />
                           </PopoverContent>
                         </Popover>
@@ -413,23 +417,23 @@ function TurnosModal({ className }: Props) {
                         <Clock3 size={16} className="inline mr-1" />
                         Hora Inicio
                       </FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary">
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className="w-36 cursor-pointer cursor-data-[state=open]:border-primary border-2">
                             <SelectValue placeholder="Elegir" />
                           </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="max-h-72">
-                          {horasDisponibles.map((hora) => (
-                            <SelectItem key={hora} value={hora} className="hover:bg-accent cursor-pointer">
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                <span>{hora} hs</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectContent className="max-h-72">
+                            {horasDisponibles.map((hora) => (
+                              <SelectItem key={hora} value={hora} className="hover:bg-accent cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4" />
+                                  <span>{hora} hs</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -447,36 +451,36 @@ function TurnosModal({ className }: Props) {
                           <Clock9 size={16} className="inline mr-1" />
                           Hora Fin
                         </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!horaInicio}>
-                          <FormControl>
-                            <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary">
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={!horaInicio}>
+                            <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary border-2">
                               <SelectValue placeholder="Elegir" />
                             </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-72">
-                            {horasDisponibles.map((hora) => {
-                              const horaMin = horaStringAMinutos(hora);
-                              const isDisabled = horaMin <= horaInicioMin;
+                            <SelectContent className="max-h-72">
+                              {horasDisponibles.map((hora) => {
+                                const horaMin = horaStringAMinutos(hora);
+                                const isDisabled = horaMin <= horaInicioMin;
 
-                              return (
-                                <SelectItem
-                                  key={hora}
-                                  value={hora}
-                                  disabled={isDisabled}
-                                  className={cn(
-                                    "hover:bg-accent cursor-pointer",
-                                    isDisabled && "opacity-50 pointer-events-none"
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4" />
-                                    <span>{hora} hs</span>
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                                return (
+                                  <SelectItem
+                                    key={hora}
+                                    value={hora}
+                                    disabled={isDisabled}
+                                    className={cn(
+                                      "hover:bg-accent cursor-pointer",
+                                      isDisabled && "opacity-50 pointer-events-none"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="h-4 w-4" />
+                                      <span>{hora} hs</span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     );

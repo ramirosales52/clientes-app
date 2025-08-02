@@ -30,6 +30,7 @@ import { Input } from "@render/components/ui/input"
 
 import { parsePhoneNumberFromString } from "libphonenumber-js"
 import { cn } from "@render/lib/utils"
+import { Toaster } from "./ui/sonner"
 
 const clientSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
@@ -89,19 +90,20 @@ export function ClientesModal({ className }: { className?: string }) {
         </Button>
       </DialogTrigger>
       <DialogContent>
+        <Toaster position="bottom-center" />
+        <DialogHeader className="mb-4">
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus size={22} />
+            Agregar cliente
+          </DialogTitle>
+          <DialogDescription>
+            Completá los siguientes campos para registrar un nuevo cliente.
+          </DialogDescription>
+          <Separator />
+        </DialogHeader>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader className="mb-4">
-              <DialogTitle className="flex items-center gap-2">
-                <UserPlus size={22} />
-                Agregar cliente
-              </DialogTitle>
-              <DialogDescription>
-                Completá los siguientes campos para registrar un nuevo cliente.
-              </DialogDescription>
-              <Separator />
-            </DialogHeader>
-
             <div className="grid gap-4">
               <FormField
                 control={form.control}

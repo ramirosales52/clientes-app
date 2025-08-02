@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { Button } from "@render/components/ui/button";
 
 const localizer = dayjsLocalizer(dayjs)
 dayjs.locale("es")
@@ -83,6 +84,7 @@ function Turnos() {
             className="max-h-[89vh] overflow-auto"
             localizer={localizer}
             events={eventos}
+            onDoubleClickEvent={(event) => { }}
             components={{ event: CustomEvent }}
             views={["month", "week", "day"]}
             defaultView="week"

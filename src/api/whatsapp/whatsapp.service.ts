@@ -1,32 +1,35 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+import { Injectable, Logger } from '@nestjs/common';
+import { Client, LocalAuth } from 'whatsapp-web.js';
+import * as qrcode from 'qrcode';
 
 @Injectable()
-export class WhatsappService implements OnModuleInit {
+export class WhatsappService {
   private readonly logger = new Logger(WhatsappService.name);
-  private client: typeof Client;
+  private client: Client | null = null;
+  private qrCodeDataUrl: string | null = null;
+  private isReady = false;
+  private isAuthenticated = false;
 
-  onModuleInit() {
-    this.initializeWhatsapp();
-  }
+  iniciarSesion() {
+    if (this.client) return;
 
-  private initializeWhatsapp() {
     this.client = new Client({
       authStrategy: new LocalAuth(),
     });
 
-    this.client.on('qr', (qr) => {
-      qrcode.generate(qr, { small: true });
+    this.client.on('qr', async (qr) => {
+      this.logger.log('QR recibido');
+      this.qrCodeDataUrl = await qrcode.toDataURL(qr);
     });
 
     this.client.on('authenticated', () => {
-      this.logger.log('WHATSAPP WEB => Authenticated');
+      this.logger.log('WHATSAPP => Autenticado');
+      this.isAuthenticated = true;
     });
 
     this.client.on('ready', () => {
-      this.logger.log('WHATSAPP WEB => Ready');
+      this.logger.log('WHATSAPP => Listo');
+      this.isReady = true;
     });
 
     this.client.on('message', async (message) => {
@@ -38,10 +41,22 @@ export class WhatsappService implements OnModuleInit {
     this.client.initialize();
   }
 
+  getQr() {
+    return this.qrCodeDataUrl;
+  }
+
+  getStatus() {
+    return {
+      authenticated: this.isAuthenticated,
+      ready: this.isReady,
+    };
+  }
+
+
   async sendMessage(phone: string, message: string) {
-    const numberId = await this.client.getNumberId(phone); // Validate number first
+    const numberId = await this.client.getNumberId(phone);
     if (!numberId) {
-      throw new Error('Number not found on WhatsApp');
+      throw new Error('Número inválido');
     }
 
     const response = await this.client.sendMessage(numberId._serialized, message);

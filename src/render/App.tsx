@@ -5,6 +5,7 @@ import Layout from "./app/layout";
 import ClienteDetalle from "./app/clienteDetalle";
 import Principal from "./app/principal";
 import Tratamientos from "./app/tratamientos";
+import Whatsapp from "./app/whatsapp";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/turnos" element={<Turnos />} />
         <Route path="/tratamientos" element={<Tratamientos />} />
+        <Route path="/whatsapp" element={<Whatsapp />} />
       </Route>
     </Routes>
   );

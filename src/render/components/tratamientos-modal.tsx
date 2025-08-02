@@ -26,6 +26,7 @@ import axios from "axios"
 import { toast } from "sonner"
 import { Separator } from "./ui/separator"
 import { cn } from "@render/lib/utils"
+import { Toaster } from "./ui/sonner"
 
 type Props = {
   className?: string;
@@ -75,12 +76,13 @@ function TratamientosModal({ className }: Props) {
       }}
     >
       <DialogTrigger className={className} asChild>
-        <Button variant="secondary">
+        <Button className={className}>
           <ClipboardPen />
           <span>Agregar tratamiento</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
+        <Toaster position="bottom-center" />
         <DialogHeader>
           <DialogTitle className="flex gap-2 items-center">
             <ClipboardPen size={22} />
