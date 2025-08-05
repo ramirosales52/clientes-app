@@ -79,6 +79,7 @@
     "@lightwing/eslint-config": "^1.0.102",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^22.13.1",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.8",
     "@types/react-big-calendar": "^1.16.2",
     "@types/react-dom": "^19.0.3",

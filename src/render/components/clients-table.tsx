@@ -139,39 +139,31 @@ function TablaClientes({ data, fetchMore, hasMore = false, loading = false }: Pr
         </TableHeader>
 
         <TableBody>
-          {sortedClients.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} className="text-center py-6">
-                No hay clientes para mostrar.
+          {sortedClients.map((cliente) => (
+            <TableRow key={cliente.id}>
+              <TableCell>{cliente.nombre}</TableCell>
+              <TableCell>{cliente.apellido}</TableCell>
+              <TableCell>({cliente.codArea}) {cliente.numero}</TableCell>
+              <TableCell>
+                <Badge variant="outline">
+                  {pluralizeTurnos(cliente.turnos.length)}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    alert(
+                      `Ver detalle de: ${cliente.nombre} ${cliente.apellido}`
+                    )
+                  }
+                >
+                  Ver detalle
+                </Button>
               </TableCell>
             </TableRow>
-          ) : (
-            sortedClients.map((cliente) => (
-              <TableRow key={cliente.id}>
-                <TableCell>{cliente.nombre}</TableCell>
-                <TableCell>{cliente.apellido}</TableCell>
-                <TableCell>({cliente.codArea}) {cliente.numero}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {pluralizeTurnos(cliente.turnos.length)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      alert(
-                        `Ver detalle de: ${cliente.nombre} ${cliente.apellido}`
-                      )
-                    }
-                  >
-                    Ver detalle
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
+          ))}
         </TableBody>
       </Table>
 

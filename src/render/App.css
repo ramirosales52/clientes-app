@@ -59,7 +59,7 @@
 }
 
 .rbc-event {
-  @apply ml-1 mt-1 bg-primary/90 p-3
+  @apply ml-1 bg-primary/90 p-3
 }
 
 .rbc-day-slot .rbc-event, .rbc-day-slot .rbc-background-event {
@@ -84,13 +84,12 @@
 }
 
 .rbc-today {
-  @apply bg-accent/50 border border-accent;
-  border-left: 1px solid var(--accent) !important;
+  @apply bg-accent/20;
 }
 
-.rbc-day-slot.rbc-now.rbc-today .rbc-time-slot {
-  border-top: 1px solid var(--accent) !important;
-}
+/* .rbc-day-slot.rbc-now.rbc-today .rbc-time-slot { */
+/*   border-top: 1px solid var(--accent) !important; */
+/* } */
 
 /*
   ---break---

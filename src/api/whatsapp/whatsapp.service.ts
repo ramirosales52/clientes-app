@@ -33,12 +33,24 @@ export class WhatsappService {
     });
 
     this.client.on('message', async (message) => {
-      if (message.body === '!ping') {
-        await message.reply('pong');
+      if (message.body === '!pingapp') {
+        await message.reply('ponga-app');
       }
     });
 
     this.client.initialize();
+  }
+
+  async cerrarSesion() {
+    if (!this.client) {
+      throw new Error('Cliente no inicializado');
+    }
+
+    await this.client.logout();
+    this.client = null;
+    this.qrCodeDataUrl = null;
+    this.isAuthenticated = false;
+    this.isReady = false;
   }
 
   getQr() {
@@ -51,7 +63,6 @@ export class WhatsappService {
       ready: this.isReady,
     };
   }
-
 
   async sendMessage(phone: string, message: string) {
     const numberId = await this.client.getNumberId(phone);

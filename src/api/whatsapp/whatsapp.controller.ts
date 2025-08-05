@@ -17,6 +17,12 @@ export class NotificationsController {
     return qr ? { qr } : { qr: null, message: 'QR no disponible' };
   }
 
+  @Post('cerrar-sesion')
+  async cerrarSesion() {
+    await this.whatsappService.cerrarSesion();
+    return { success: true, message: 'Sesión cerrada correctamente' };
+  }
+
   @Get('status')
   getStatus() {
     return this.whatsappService.getStatus();

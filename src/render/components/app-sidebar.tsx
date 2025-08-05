@@ -1,4 +1,4 @@
-import { User, Calendar, Home, ClipboardList, BotMessageSquare } from "lucide-react";
+import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users } from "lucide-react";
 import Logo from "../assets/logo2.png";
 
 import {
@@ -27,12 +27,17 @@ const items = [
   {
     title: "Clientes",
     url: "/clientes",
-    icon: User,
+    icon: Users,
+  },
+  {
+    title: "Calendario",
+    url: "/calendario",
+    icon: CalendarClock
   },
   {
     title: "Turnos",
     url: "/turnos",
-    icon: Calendar,
+    icon: NotebookText,
   },
   {
     title: "Tratamientos",

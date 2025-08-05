@@ -91,7 +91,7 @@ export function ClientesModal({ className }: { className?: string }) {
       </DialogTrigger>
       <DialogContent>
         <Toaster position="bottom-center" />
-        <DialogHeader className="mb-4">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus size={22} />
             Agregar cliente
@@ -104,7 +104,7 @@ export function ClientesModal({ className }: { className?: string }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="grid gap-4">
+            <div className="space-y-6">
               <FormField
                 control={form.control}
                 name="nombre"

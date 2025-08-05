@@ -10,15 +10,12 @@ import {
   FormMessage,
 } from "./ui/form";
 import {
-  Calendar1,
-  CalendarClock,
   CalendarDays,
+  CalendarPlus,
   ChevronDownIcon,
   ChevronsUpDown,
   ClipboardList,
   Clock,
-  Clock3,
-  Clock9,
   User,
 } from "lucide-react";
 import {
@@ -218,7 +215,7 @@ function TurnosModal({ className }: Props) {
       >
         <DialogTrigger className={className} asChild>
           <Button className={className}>
-            <CalendarClock />
+            <CalendarPlus />
             <span>Agendar turno</span>
           </Button>
         </DialogTrigger>
@@ -226,7 +223,7 @@ function TurnosModal({ className }: Props) {
           <Toaster position="bottom-center" />
           <DialogHeader>
             <DialogTitle className="flex gap-2 items-center">
-              <CalendarClock size={22} />
+              <CalendarPlus size={22} />
               <span>Agendar turno</span>
             </DialogTitle>
             <DialogDescription>
@@ -391,12 +388,7 @@ function TurnosModal({ className }: Props) {
                             )}
                           >
                             {field.value
-                              ? capitalizar(field.value.toLocaleDateString("es-AR", {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                              }))
+                              ? capitalizar(field.value.toLocaleDateString("es-AR", { dateStyle: "full" }))
                               : (
                                 <div className="flex items-center gap-2">
                                   <CalendarDays size={10} />

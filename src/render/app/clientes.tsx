@@ -4,8 +4,9 @@ import { Button } from "@render/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@render/components/ui/card";
 import { Input } from "@render/components/ui/input";
 import axios from "axios";
-import { RefreshCw, Search, User } from "lucide-react";
+import { RefreshCw, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import AddUser from "@render/assets/undraw_add-user_rbko.svg"
 
 function Clientes() {
   const [data, setData] = useState([]);
@@ -41,15 +42,16 @@ function Clientes() {
     <div className="flex flex-col h-screen w-full p-4 space-y-4">
       <div className="flex justify-between">
         <h1 className="text-xl font-bold">Clientes</h1>
-        <ClientesModal />
+        {data.length == 0 ? null : (
+          <ClientesModal />
+        )}
       </div>
-
 
       <Card className="flex flex-col flex-1">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <User size={22} />
+              <Users size={22} />
               <span>Lista de Clientes</span>
             </div>
             <div className="flex items-center gap-2">
@@ -62,12 +64,23 @@ function Clientes() {
         </CardHeader>
 
         <CardContent className="flex-1 max-h-[83vh]">
-          <TablaClientes
-            data={data}
-            fetchMore={() => fetchData(page)}
-            hasMore={hasMore}
-            loading={loading}
-          />
+          {data.length == 0 ? (
+            <div className="w-full flex justify-center mt-16">
+              <div className="h-72 w-72 flex flex-col items-center gap-4">
+                <img src={AddUser} className="mb-4" />
+                <h1>No hay clientes registrados.</h1>
+                <ClientesModal />
+              </div>
+            </div>
+          ) : (
+
+            <TablaClientes
+              data={data}
+              fetchMore={() => fetchData(page)}
+              hasMore={hasMore}
+              loading={loading}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
