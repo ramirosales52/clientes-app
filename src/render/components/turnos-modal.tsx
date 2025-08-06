@@ -71,6 +71,7 @@ function TurnosModal({ className }: Props) {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
   const [openCalendar, setOpenCalendar] = useState(false);
   const [openTratamientos, setOpenTratamientos] = useState(false);
+  const [horasOcupadas, setHorasOcupadas] = useState<string[]>([]);
 
   const form = useForm<z.infer<typeof turnoSchema>>({
     resolver: zodResolver(turnoSchema),
@@ -120,6 +121,52 @@ function TurnosModal({ className }: Props) {
 
   const horaInicio = form.watch("horaInicio");
   const tratamientosSeleccionados = form.watch("tratamientos");
+  const fecha = form.watch("fecha")
+
+  const expandirRangosOcupados = (rangos: [string, string][]) => {
+    const ocupadas: string[] = [];
+
+    rangos.forEach(([inicio, fin]) => {
+      const start = horaStringAMinutos(inicio);
+      const end = horaStringAMinutos(fin);
+
+      for (let min = start; min < end; min += 30) {
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        ocupadas.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      }
+    });
+
+    return ocupadas;
+  };
+
+  useEffect(() => {
+    if (!fecha) return;
+
+    const fetchHorasOcupadas = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/turnos/horarios", {
+          params: { fecha: dayjs(fecha).format("MM-DD-YYYY") },
+        });
+
+        setHorasOcupadas(expandirRangosOcupados(res.data.ocupadas || []));
+        console.log(fecha)
+        console.log(horasOcupadas)
+      } catch (error) {
+        console.error("Error al obtener horas ocupadas:", error);
+      }
+    };
+
+    fetchHorasOcupadas();
+  }, [fecha]);
+
+  const horasInicioDisponibles = horasDisponibles.filter(
+    (hora) => hora <= "11:30" || hora <= "18:30" // Dentro del bloque permitido
+  );
+
+  const horasFinDisponibles = horasDisponibles.filter(
+    (hora) => hora === "12:00" || hora === "19:00" || (hora > "08:00" && (hora >= "11:30" && hora <= "12:00")) || (hora >= "18:30" && hora <= "19:00")
+  );
 
   useEffect(() => {
     if (!tratamientosSeleccionados?.length) {
@@ -151,6 +198,13 @@ function TurnosModal({ className }: Props) {
     }
     if (!tratamientosSeleccionados.length) {
       form.setValue("horaFin", "")
+    }
+
+    const finCruzaConOcupada = horasOcupadas.includes(horaFinStr);
+    if (finCruzaConOcupada) {
+      form.setValue("horaFin", "");
+      toast.error("La hora de fin se superpone con un turno existente.");
+      return;
     }
 
   }, [tratamientosSeleccionados, horaInicio]);
@@ -427,13 +481,21 @@ function TurnosModal({ className }: Props) {
                         Hora Inicio
                       </FormLabel>
                       <FormControl>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select disabled={!fecha} onValueChange={field.onChange} value={field.value}>
                           <SelectTrigger className="w-36 cursor-pointer data-[state=open]:border-primary border-2">
                             <SelectValue placeholder="HH:MM" />
                           </SelectTrigger>
                           <SelectContent className="max-h-72">
-                            {horasDisponibles.map((hora) => (
-                              <SelectItem key={hora} value={hora} className="hover:bg-accent cursor-pointer">
+                            {horasInicioDisponibles.map((hora) => (
+                              <SelectItem
+                                key={hora}
+                                value={hora}
+                                disabled={horasOcupadas.includes(hora)}
+                                className={cn(
+                                  "hover:bg-accent cursor-pointer",
+                                  horasOcupadas.includes(hora) && "opacity-50 pointer-events-none"
+                                )}
+                              >
                                 <div className="flex items-center gap-2">
                                   <Clock className="h-4 w-4" />
                                   <span>{hora} hs</span>
@@ -466,9 +528,10 @@ function TurnosModal({ className }: Props) {
                               <SelectValue placeholder="HH:MM" />
                             </SelectTrigger>
                             <SelectContent className="max-h-72">
-                              {horasDisponibles.map((hora) => {
+                              {horasFinDisponibles.map((hora) => {
                                 const horaMin = horaStringAMinutos(hora);
-                                const isDisabled = horaMin <= horaInicioMin;
+                                const isDisabled =
+                                  horaMin <= horaInicioMin || horasOcupadas.includes(hora);
 
                                 return (
                                   <SelectItem

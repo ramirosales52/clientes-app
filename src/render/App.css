@@ -59,10 +59,19 @@
 }
 
 .rbc-event {
-  @apply ml-1 bg-primary/90 p-3
+  @apply ml-1 bg-primary/90
 }
 
-.rbc-day-slot .rbc-event, .rbc-day-slot .rbc-background-event {
+.rbc-event-label {
+  display: none !important;
+}
+
+.rbc-show-more {
+  @apply text-foreground hover:text-foreground ml-2;
+}
+
+.rbc-day-slot .rbc-event,
+.rbc-day-slot .rbc-background-event {
   @apply border-3 border-primary rounded-lg
 }
 

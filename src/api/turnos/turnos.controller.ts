@@ -6,6 +6,8 @@ import {
   Param,
   Patch,
   Delete,
+  BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { TurnoService } from './turnos.service';
 import { CreateTurnoDto } from './dto/create-turno.dto';
@@ -23,6 +25,13 @@ export class TurnoController {
   @Get()
   findAll() {
     return this.turnoService.findAll();
+  }
+
+  @Get('horarios')
+  async getHorasDisponibles(@Query('fecha') fecha: string) {
+    if (!fecha) throw new BadRequestException('Fecha requerida');
+    const fechaDate = new Date(fecha);
+    return this.turnoService.obtenerHorasDisponibles(fechaDate);
   }
 
   @Get(':id')

@@ -45,6 +45,7 @@ function Step4() {
 }
 
 export default function WhatsappQR() {
+  const [connected, setConnected] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [, setCheckingStatus] = useState(false);
@@ -68,7 +69,7 @@ export default function WhatsappQR() {
       console.log('Sesión cerrada:', res.data);
       setLoading(false)
       setStatus('desconectado');
-      // Podés mostrar un toast o actualizar estado si querés
+      setConnected(false)
     } catch (error) {
       setLoading(false)
       console.error('Error al cerrar sesión:', error);
@@ -81,8 +82,6 @@ export default function WhatsappQR() {
       if (res.data.qr) {
         setQrUrl(res.data.qr);
         clearInterval(interval);
-      } else {
-
       }
     }, 1000);
   };
@@ -95,11 +94,13 @@ export default function WhatsappQR() {
       if (res.data.ready) {
         setStatus('listo');
         setCheckingStatus(false);
+        setConnected(true)
         clearInterval(interval);
       } else if (res.data.authenticated) {
         setStatus('conectando');
       } else {
         setStatus('desconectado');
+        setConnected(false)
       }
     }, 1000);
   };
@@ -132,108 +133,110 @@ export default function WhatsappQR() {
           </span>
         </div>
         <div className='flex gap-2'>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button onClick={iniciarSesion} disabled={status === "listo"}>
-                <ScanQrCode />
-                Iniciar sesión
-              </Button>
-            </DialogTrigger>
+          {!connected ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button onClick={iniciarSesion} disabled={status === "listo"}>
+                  <ScanQrCode />
+                  Iniciar sesión
+                </Button>
+              </DialogTrigger>
 
-            <DialogContent className="min-w-3xl">
-              <DialogHeader>
-                <DialogTitle className='flex gap-2'>
-                  <Link size={16} />
-                  Vincular con WhatsApp
-                </DialogTitle>
-                <DialogDescription>
-                  Vinculá tu cuenta una sola vez escaneando el QR con tu celular.
-                </DialogDescription>
-              </DialogHeader>
-              <Toaster position='bottom-center' />
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2 p-4 h-56">
-                  <Stepper orientation="vertical">
-                    <StepperNav>
-                      {steps.map((step, index) => (
-                        <StepperItem key={index} step={1} className="relative items-start not-last:flex-1">
-                          <div className="flex flex-row items-start pb-7 last:pb-0 gap-2.5">
-                            <StepperIndicator className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                              {index + 1}
-                            </StepperIndicator>
+              <DialogContent className="min-w-3xl">
+                <DialogHeader>
+                  <DialogTitle className='flex gap-2'>
+                    <Link size={16} />
+                    Vincular con WhatsApp
+                  </DialogTitle>
+                  <DialogDescription>
+                    Vinculá tu cuenta una sola vez escaneando el QR con tu celular.
+                  </DialogDescription>
+                </DialogHeader>
+                <Toaster position='bottom-center' />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 p-4 h-56">
+                    <Stepper orientation="vertical">
+                      <StepperNav>
+                        {steps.map((step, index) => (
+                          <StepperItem key={index} step={1} className="relative items-start not-last:flex-1">
+                            <div className="flex flex-row items-start pb-7 last:pb-0 gap-2.5">
+                              <StepperIndicator className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                                {index + 1}
+                              </StepperIndicator>
 
-                            <div className="mt-1.25 text-left">
-                              <step.component />
+                              <div className="mt-1.25 text-left">
+                                <step.component />
+                              </div>
+                            </div>
+                            {index < steps.length - 1 && (
+                              <StepperSeparator className="absolute inset-y-0 top-7 left-3 -order-1 m-0 -translate-x-1/2 group-data-[orientation=vertical]/stepper-nav:h-5" />
+                            )}
+                          </StepperItem>
+                        ))}
+                      </StepperNav>
+                    </Stepper>
+                  </div>
+                  <div className="col-span-1 flex items-center justify-center w-56 h-56 relative">
+                    {qrUrl ? (
+                      <>
+                        <img
+                          src={qrUrl}
+                          alt="QR WhatsApp"
+                          className={`w-56 h-56 border-2 rounded-md ${status !== 'desconectado' ? 'blur-sm' : ''}`}
+                        />
+
+                        {/* Overlay conectando */}
+                        {status === 'conectando' && (
+                          <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
+                            <>
+                              <ProgressCircle
+                                value={25}
+                                size={24}
+                                strokeWidth={3}
+                                className="text-primary animate-spin"
+                              />
+                            </>
+                          </div>
+                        )}
+
+                        {/* Overlay cuando está listo */}
+                        {status === 'listo' && (
+                          <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
+                            <div className="rounded-full bg-green-500 p-1.5">
+                              <Check size={20} className="text-white" />
                             </div>
                           </div>
-                          {index < steps.length - 1 && (
-                            <StepperSeparator className="absolute inset-y-0 top-7 left-3 -order-1 m-0 -translate-x-1/2 group-data-[orientation=vertical]/stepper-nav:h-5" />
-                          )}
-                        </StepperItem>
-                      ))}
-                    </StepperNav>
-                  </Stepper>
+                        )}
+                      </>
+                    ) : (
+                      <div className="h-56 w-56 flex items-center justify-center rounded-xl bg-muted/30">
+                        <ProgressCircle
+                          value={25}
+                          size={32}
+                          strokeWidth={3}
+                          className="text-accent animate-spin"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="col-span-1 flex items-center justify-center w-56 h-56 relative">
-                  {qrUrl ? (
-                    <>
-                      <img
-                        src={qrUrl}
-                        alt="QR WhatsApp"
-                        className={`w-56 h-56 border-2 rounded-md ${status !== 'desconectado' ? 'blur-sm' : ''}`}
-                      />
-
-                      {/* Overlay conectando */}
-                      {status === 'conectando' && (
-                        <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
-                          <>
-                            <ProgressCircle
-                              value={25}
-                              size={24}
-                              strokeWidth={3}
-                              className="text-primary animate-spin"
-                            />
-                          </>
-                        </div>
-                      )}
-
-                      {/* Overlay cuando está listo */}
-                      {status === 'listo' && (
-                        <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
-                          <div className="rounded-full bg-green-500 p-1.5">
-                            <Check size={20} className="text-white" />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="h-56 w-56 flex items-center justify-center rounded-xl bg-muted/30">
-                      <ProgressCircle
-                        value={25}
-                        size={32}
-                        strokeWidth={3}
-                        className="text-accent animate-spin"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </DialogContent>
-          </Dialog>
-          <Button variant='destructive' onClick={cerrarSesion} disabled={status === "desconectado"}>
-            {loading ? (
-              <>
-                <ProgressCircle value={25} size={16} strokeWidth={3} className='text-destructive-foreground animate-spin' />
-                Cerrando sesión.
-              </>
-            ) : (
-              <>
-                <LogOut size={16} />
-                Cerrar sesión
-              </>
-            )}
-          </Button>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button variant='destructive' onClick={cerrarSesion} disabled={status === "desconectado"}>
+              {loading ? (
+                <>
+                  <ProgressCircle value={25} size={16} strokeWidth={3} className='text-destructive-foreground animate-spin' />
+                  Cerrando sesión.
+                </>
+              ) : (
+                <>
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -244,4 +247,5 @@ export default function WhatsappQR() {
     </div>
   );
 }
+
 
