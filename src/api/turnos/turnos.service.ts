@@ -1,12 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThan, MoreThan, Repository } from 'typeorm';
+import { Between, In, LessThan, MoreThan, Repository } from 'typeorm';
 import { Turno } from './entities/turno.entity';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { Cliente } from '../clientes/entities/cliente.entity';
 import { Tratamiento } from '../tratamientos/entities/tratamiento.entity';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import dayjs from 'dayjs';
+
+dayjs.extend(isSameOrBefore);
+
+type Interval = { inicio: dayjs.Dayjs; fin: dayjs.Dayjs };
+export type DisponibilidadCard = { horaInicio: string; horaFin: string };
 
 @Injectable()
 export class TurnoService {
@@ -63,67 +69,103 @@ export class TurnoService {
     return this.turnoRepository.save(turno);
   }
 
-  private generarBloques(intervalos: [number, number][]): string[] {
-    const bloques: string[] = [];
+  private bloquesTrabajo(fecha: string): Interval[] {
+    return [
+      { inicio: dayjs(`${fecha} 08:00`), fin: dayjs(`${fecha} 12:00`) },
+      { inicio: dayjs(`${fecha} 15:00`), fin: dayjs(`${fecha} 19:00`) },
+    ];
+  }
 
-    for (const [inicio, fin] of intervalos) {
-      for (let hora = inicio; hora <= fin; hora++) {
-        if (hora < fin) {
-          bloques.push(`${hora.toString().padStart(2, '0')}:00`);
-          bloques.push(`${hora.toString().padStart(2, '0')}:30`);
-        } else if (hora === fin) {
-          bloques.push(`${hora.toString().padStart(2, '0')}:00`); // incluir hora final exacta
+  private mergeIntervals(intervals: Interval[]): Interval[] {
+    if (!intervals.length) return [];
+    intervals.sort((a, b) => a.inicio.valueOf() - b.inicio.valueOf());
+    const merged: Interval[] = [];
+    let current = { ...intervals[0] };
+    for (let i = 1; i < intervals.length; i++) {
+      const next = intervals[i];
+      if (!current.fin.isBefore(next.inicio)) {
+        if (next.fin.isAfter(current.fin)) current.fin = next.fin;
+      } else {
+        merged.push(current);
+        current = { ...next };
+      }
+    }
+    merged.push(current);
+    return merged;
+  }
+
+  private subtractOccupiedFromBlock(block: Interval, ocupados: Interval[]): Interval[] {
+    const relevant = ocupados.filter(o => o.fin.isAfter(block.inicio) && o.inicio.isBefore(block.fin));
+    if (relevant.length === 0) return [{ inicio: block.inicio, fin: block.fin }];
+
+    const recortados = relevant.map(o => ({
+      inicio: o.inicio.isBefore(block.inicio) ? block.inicio : o.inicio,
+      fin: o.fin.isAfter(block.fin) ? block.fin : o.fin,
+    }));
+    const merged = this.mergeIntervals(recortados);
+
+    const libres: Interval[] = [];
+    let cursor = block.inicio;
+
+    for (const m of merged) {
+      if (cursor.isBefore(m.inicio)) {
+        libres.push({ inicio: cursor, fin: m.inicio });
+      }
+      cursor = m.fin;
+    }
+
+    if (cursor.isBefore(block.fin)) {
+      libres.push({ inicio: cursor, fin: block.fin });
+    }
+
+    return libres;
+  }
+
+  async obtenerDisponibilidades(fecha: string, duracionMinutos: number): Promise<DisponibilidadCard[]> {
+    if (duracionMinutos <= 0 || duracionMinutos % 30 !== 0) {
+      throw new Error('Duración debe ser múltiplo de 30 minutos y mayor a 0');
+    }
+
+    // Traer turnos ocupados del día filtrando por fecha
+    const inicioDia = dayjs(`${fecha} 00:00`).toDate();
+    const finDia = dayjs(`${fecha} 23:59`).toDate();
+
+    const turnosOcupados = await this.turnoRepository.find({
+      where: {
+        fechaInicio: Between(inicioDia, finDia),
+      },
+      order: { fechaInicio: 'ASC' },
+    });
+
+    // Mapear a intervals usando directamente los Date de la DB
+    const ocupados: Interval[] = turnosOcupados.map(t => ({
+      inicio: dayjs(t.fechaInicio),
+      fin: dayjs(t.fechaFin),
+    }));
+
+    const ocupadosMerged = this.mergeIntervals(ocupados);
+    const resultados: DisponibilidadCard[] = [];
+    const bloques = this.bloquesTrabajo(fecha);
+
+    for (const bloque of bloques) {
+      const libres = this.subtractOccupiedFromBlock(bloque, ocupadosMerged);
+
+      for (const libre of libres) {
+        let inicioPropuesto = libre.inicio;
+        while (inicioPropuesto.add(duracionMinutos, 'minute').isSameOrBefore(libre.fin)) {
+          const finPropuesto = inicioPropuesto.add(duracionMinutos, 'minute');
+          if (finPropuesto.isSameOrBefore(bloque.fin)) {
+            resultados.push({
+              horaInicio: inicioPropuesto.format('HH:mm'),
+              horaFin: finPropuesto.format('HH:mm'),
+            });
+          }
+          inicioPropuesto = inicioPropuesto.add(30, 'minute');
         }
       }
     }
 
-    return bloques;
-  }
-
-  async obtenerHorasDisponibles(fecha: Date): Promise<{ disponibles: string[], ocupadas: [string, string][] }> {
-    const fechaInicio = new Date(fecha);
-    fechaInicio.setHours(0, 0, 0, 0);
-    const fechaFin = new Date(fecha);
-    fechaFin.setHours(23, 59, 59, 999);
-
-    const turnos = await this.turnoRepository.find({
-      where: {
-        fechaInicio: MoreThan(fechaInicio),
-        fechaFin: LessThan(fechaFin),
-        estado: In(['pendiente', 'confirmado']),
-      },
-    });
-
-    const ocupados: [string, string][] = turnos.map(turno => {
-      const inicio = dayjs(turno.fechaInicio).format("HH:mm");
-      const fin = dayjs(turno.fechaFin).format("HH:mm");
-      return [inicio, fin];
-    });
-
-    const bloques = this.generarBloques([
-      [8, 12],
-      [15, 19],
-    ]);
-
-    function estaEnIntervalo(bloque: string, intervalos: [string, string][]) {
-      const minutos = horaStringAMinutos(bloque);
-
-      return intervalos.some(([inicio, fin]) => {
-        const inicioMin = horaStringAMinutos(inicio);
-        const finMin = horaStringAMinutos(fin);
-        return minutos >= inicioMin && minutos < finMin;
-      });
-    }
-
-    function horaStringAMinutos(hora: string): number {
-      const [h, m] = hora.split(":").map(Number);
-      return h * 60 + m;
-    }
-
-    return {
-      disponibles: bloques.filter((bloque) => !estaEnIntervalo(bloque, ocupados)),
-      ocupadas: ocupados
-    };
+    return resultados;
   }
 
   findAll(): Promise<Turno[]> {

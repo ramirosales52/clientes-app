@@ -87,13 +87,20 @@
   @apply p-0 pr-[9px]
 }
 
-
 .rbc-off-range-bg {
   @apply bg-muted/40
 }
 
 .rbc-today {
   @apply bg-accent/20;
+}
+
+.rbc-overlay {
+  @apply pl-0 w-64 rounded-md
+}
+
+.rbc-overlay-header {
+  @apply pl-4
 }
 
 /* .rbc-day-slot.rbc-now.rbc-today .rbc-time-slot { */

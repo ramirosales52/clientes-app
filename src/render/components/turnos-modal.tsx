@@ -386,8 +386,8 @@ function TurnosModal({ className }: Props) {
                             <ChevronsUpDown className="opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-72 p-0">
-                          <Command className="z-20">
+                        <PopoverContent className="p-0">
+                          <Command>
                             <CommandInput autoFocus placeholder="Buscar tratamiento..." />
                             <CommandEmpty>No se encontró ningún tratamiento.</CommandEmpty>
                             <CommandGroup>
@@ -402,14 +402,17 @@ function TurnosModal({ className }: Props) {
                                   }}
                                   className="cursor-pointer"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={field.value.includes(t.id)}
-                                      readOnly
-                                      className="cursor-pointer"
-                                    />
-                                    {t.nombre}
+                                  <div className="w-full flex items-center justify-between">
+                                    <div className="flex flex-row gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={field.value.includes(t.id)}
+                                        readOnly
+                                        className="cursor-pointer"
+                                      />
+                                      <span>{t.nombre}</span>
+                                    </div>
+                                    <span className="text-muted-foreground/80">{t.duracion} min</span>
                                   </div>
                                 </CommandItem>
                               ))}
@@ -452,7 +455,7 @@ function TurnosModal({ className }: Props) {
                             <ChevronDownIcon className="opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0" align="center">
                           <Calendar
                             locale={es}
                             mode="single"

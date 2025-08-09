@@ -6,10 +6,9 @@ import {
   Param,
   Patch,
   Delete,
-  BadRequestException,
   Query,
 } from '@nestjs/common';
-import { TurnoService } from './turnos.service';
+import { DisponibilidadCard, TurnoService } from './turnos.service';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 
@@ -28,10 +27,15 @@ export class TurnoController {
   }
 
   @Get('horarios')
-  async getHorasDisponibles(@Query('fecha') fecha: string) {
-    if (!fecha) throw new BadRequestException('Fecha requerida');
-    const fechaDate = new Date(fecha);
-    return this.turnoService.obtenerHorasDisponibles(fechaDate);
+  async disponibles(
+    @Query('fecha') fecha: string,
+    @Query('duracion') duracion: string,
+  ): Promise<DisponibilidadCard[]> {
+    const dur = parseInt(duracion, 10);
+    if (!fecha || Number.isNaN(dur)) {
+      throw new Error('Parámetros requeridos: fecha (YYYY-MM-DD) y duracion (minutos)');
+    }
+    return this.turnoService.obtenerDisponibilidades(fecha, dur);
   }
 
   @Get(':id')

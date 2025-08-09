@@ -5,7 +5,7 @@ import { ProgressCircle } from '@render/components/ui/progress';
 import { Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle } from '@render/components/ui/stepper';
 import axios from 'axios';
 import { Check, EllipsisVertical, Link, LogOut, ScanQrCode } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast, Toaster } from 'sonner';
 import WhatsappLogo from "@render/assets/WhatsApp_Symbol_Alternative_0.svg"
 
@@ -48,7 +48,6 @@ export default function WhatsappQR() {
   const [connected, setConnected] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const [, setCheckingStatus] = useState(false);
   const [status, setStatus] = useState<'desconectado' | 'conectando' | 'listo'>('desconectado');
 
   const iniciarSesion = async () => {
@@ -77,23 +76,35 @@ export default function WhatsappQR() {
   };
 
   const pollQr = () => {
-    const interval = setInterval(async () => {
-      const res = await axios.get('http://localhost:3000/whatsapp/qr');
-      if (res.data.qr) {
-        setQrUrl(res.data.qr);
+    const fetchQr = async () => {
+      const res = await axios.get("http://localhost:3000/whatsapp/qr");
+      const newQr = res.data.qr;
+
+      if (newQr && newQr !== qrUrl) {
+        setQrUrl(newQr);
+        console.log("nuevo");
+      }
+
+      if (status === "listo") {
         clearInterval(interval);
       }
-    }, 1000);
+    };
+
+    // Ejecutar inmediatamente la primera vez
+    fetchQr();
+
+    // Luego seguir cada 30 segundos
+    const interval = setInterval(fetchQr, 30000);
   };
 
+  useEffect(() => { console.log(qrUrl) }, [qrUrl])
+
   const pollStatus = () => {
-    setCheckingStatus(true);
     const interval = setInterval(async () => {
       const res = await axios.get('http://localhost:3000/whatsapp/status');
 
       if (res.data.ready) {
         setStatus('listo');
-        setCheckingStatus(false);
         setConnected(true)
         clearInterval(interval);
       } else if (res.data.authenticated) {
@@ -227,7 +238,7 @@ export default function WhatsappQR() {
               {loading ? (
                 <>
                   <ProgressCircle value={25} size={16} strokeWidth={3} className='text-destructive-foreground animate-spin' />
-                  Cerrando sesión.
+                  Cerrando sesión...
                 </>
               ) : (
                 <>

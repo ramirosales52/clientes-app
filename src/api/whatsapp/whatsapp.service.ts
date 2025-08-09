@@ -33,8 +33,8 @@ export class WhatsappService {
     });
 
     this.client.on('message', async (message) => {
-      if (message.body === '!pingapp') {
-        await message.reply('ponga-app');
+      if (message.body === '!app') {
+        await message.reply('app');
       }
     });
 
