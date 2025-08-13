@@ -5,7 +5,7 @@ import { ProgressCircle } from '@render/components/ui/progress';
 import { Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle } from '@render/components/ui/stepper';
 import axios from 'axios';
 import { Check, EllipsisVertical, Link, LogOut, ScanQrCode } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast, Toaster } from 'sonner';
 import WhatsappLogo from "@render/assets/WhatsApp_Symbol_Alternative_0.svg"
 
@@ -49,8 +49,22 @@ export default function WhatsappQR() {
   const [loading, setLoading] = useState<boolean>(false)
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'desconectado' | 'conectando' | 'listo'>('desconectado');
+  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearAllIntervals = () => {
+    if (qrIntervalRef.current) {
+      clearInterval(qrIntervalRef.current);
+      qrIntervalRef.current = null;
+    }
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+  };
 
   const iniciarSesion = async () => {
+    clearAllIntervals();
     setQrUrl(null)
     try {
       await axios.post('http://localhost:3000/whatsapp/iniciar-sesion');
@@ -85,28 +99,24 @@ export default function WhatsappQR() {
         console.log("nuevo");
       }
 
-      if (status === "listo") {
-        clearInterval(interval);
+      if (status === "conectando") {
+        clearAllIntervals();
       }
     };
 
-    // Ejecutar inmediatamente la primera vez
     fetchQr();
 
-    // Luego seguir cada 30 segundos
-    const interval = setInterval(fetchQr, 30000);
+    qrIntervalRef.current = setInterval(fetchQr, 5000);
   };
 
-  useEffect(() => { console.log(qrUrl) }, [qrUrl])
-
   const pollStatus = () => {
-    const interval = setInterval(async () => {
+    statusIntervalRef.current = setInterval(async () => {
       const res = await axios.get('http://localhost:3000/whatsapp/status');
 
       if (res.data.ready) {
         setStatus('listo');
         setConnected(true)
-        clearInterval(interval);
+        clearAllIntervals();
       } else if (res.data.authenticated) {
         setStatus('conectando');
       } else {
@@ -115,6 +125,12 @@ export default function WhatsappQR() {
       }
     }, 1000);
   };
+
+  useEffect(() => {
+    return () => {
+      clearAllIntervals();
+    };
+  }, []);
 
   const steps = [
     { component: Step1 },
@@ -145,7 +161,13 @@ export default function WhatsappQR() {
         </div>
         <div className='flex gap-2'>
           {!connected ? (
-            <Dialog>
+            <Dialog
+              onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                  clearAllIntervals()
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button onClick={iniciarSesion} disabled={status === "listo"}>
                   <ScanQrCode />

@@ -7,6 +7,7 @@ import Principal from "./app/principal";
 import Tratamientos from "./app/tratamientos";
 import Whatsapp from "./app/whatsapp";
 import Calendario from "./app/calendario";
+import AgendarTurno from "./app/agendarTurno";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/calendario" element={<Calendario />} />
         <Route path="/tratamientos" element={<Tratamientos />} />
         <Route path="/whatsapp" element={<Whatsapp />} />
+        <Route path="/agendar-turno" element={<AgendarTurno />} />
       </Route>
     </Routes>
   );

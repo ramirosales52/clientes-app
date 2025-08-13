@@ -1,4 +1,4 @@
-import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users } from "lucide-react";
+import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users, CalendarPlus } from "lucide-react";
 import Logo from "../assets/logo2.png";
 
 import {
@@ -14,8 +14,8 @@ import {
 } from "@render/components/ui/sidebar";
 import { Link, useLocation } from "react-router";
 import { ClientesModal } from "./clientes-modal";
-import TurnosModal from "./turnos-modal";
 import TratamientosModal from "./tratamientos-modal";
+import { Button } from "./ui/button";
 
 // Menu items.
 const items = [
@@ -88,7 +88,12 @@ export function AppSidebar() {
                 <ClientesModal className="w-full" />
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <TurnosModal className="w-full" />
+                <Button className="w-full">
+                  <Link to="/agendar-turno" className="flex gap-2">
+                    <CalendarPlus />
+                    <span>Agendar turno</span>
+                  </Link>
+                </Button>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <TratamientosModal className="w-full" />
