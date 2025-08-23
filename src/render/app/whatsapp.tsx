@@ -8,6 +8,8 @@ import { Check, EllipsisVertical, Link, LogOut, ScanQrCode } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react';
 import { toast, Toaster } from 'sonner';
 import WhatsappLogo from "@render/assets/WhatsApp_Symbol_Alternative_0.svg"
+import ChatBot from "@render/assets/undraw_chat-bot_c8iw.svg"
+
 
 function Step1() {
   return (
@@ -275,6 +277,15 @@ export default function WhatsappQR() {
 
       <Card className="flex-1 bg-background">
         <CardContent className="p-4 h-full">
+          <div className="w-full flex justify-center mt-16">
+            <div className="h-72 w-72 flex flex-col items-center gap-4">
+              <img src={ChatBot} className="mb-4" />
+              <Button onClick={iniciarSesion} disabled={status === "listo"}>
+                <ScanQrCode />
+                Conectar con Whatsapp
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,18 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@render/components/ui/button";
 import { Calendar } from "@render/components/ui/calendar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@render/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@render/components/ui/card";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@render/components/ui/command";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@render/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@render/components/ui/popover";
 import { cn } from "@render/lib/utils";
 import axios from "axios";
-import { CalendarDays, CalendarPlus, ChevronDownIcon, ChevronsUpDown, ClipboardList, User } from "lucide-react"
+import dayjs from "dayjs";
+import { CalendarDays, CalendarPlus, ChevronDownIcon, ChevronsUpDown, ClipboardList, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { es } from "react-day-picker/locale";
 import { useForm } from "react-hook-form";
 import z from "zod";
-import { es } from "react-day-picker/locale";
-import dayjs from "dayjs";
 
 interface Cliente {
   id: string,
@@ -31,6 +31,26 @@ const turnoSchema = z.object({
   tratamientos: z.array(z.string()).min(1, "Seleccioná al menos un tratamiento"),
   fecha: z.date({ required_error: "Seleccioná una fecha" }),
 });
+
+function MyComponent3() {
+  let usuario = {
+    nombre: "juanjose",
+    rol: "admin plus"
+  }
+
+  return (
+    <div>MyComponent3
+      <hr />
+      <p> Opción 3</p>
+      <hr />
+      <ul>
+        <li> nombre del usuario <strong> {usuario.nombre}  </strong>    </li>
+        <li> rol <b> {usuario.rol} </b> </li>
+      </ul>
+    </div>
+  )
+}
+
 
 function AgendarTurno() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
