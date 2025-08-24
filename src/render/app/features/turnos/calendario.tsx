@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 import { useEffect, useState } from "react";
 import axios from "axios";
-import TurnosModal from "@render/components/turnos-modal";
+import TurnosModal from "./components/turnos-modal";
 import { cn } from "@render/lib/utils";
 
 const localizer = dayjsLocalizer(dayjs)

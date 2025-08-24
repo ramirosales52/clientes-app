@@ -1,5 +1,3 @@
-import TablaClientes from "@render/components/clients-table";
-import { ClientesModal } from "@render/components/clientes-modal";
 import { Button } from "@render/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@render/components/ui/card";
 import { Input } from "@render/components/ui/input";
@@ -7,6 +5,8 @@ import axios from "axios";
 import { RefreshCw, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import AddUser from "@render/assets/undraw_add-user_rbko.svg"
+import { ClientesModal } from "./components/clientes-modal";
+import TablaClientes from "./components/clients-table";
 
 function Clientes() {
   const [data, setData] = useState([]);

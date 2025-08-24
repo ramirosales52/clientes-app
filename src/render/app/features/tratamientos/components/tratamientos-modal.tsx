@@ -8,9 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger
-} from "./ui/dialog"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
+} from "@render/components/ui/dialog"
 import {
   Form,
   FormControl,
@@ -18,15 +16,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage
-} from "./ui/form"
+} from "@render/components/ui/form"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import axios from "axios"
 import { toast } from "sonner"
-import { Separator } from "./ui/separator"
 import { cn } from "@render/lib/utils"
-import { Toaster } from "./ui/sonner"
+import { Button } from "@render/components/ui/button"
+import { Toaster } from "@render/components/ui/sonner"
+import { Separator } from "@render/components/ui/separator"
+import { Input } from "@render/components/ui/input"
 
 type Props = {
   className?: string;

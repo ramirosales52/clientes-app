@@ -30,7 +30,7 @@ import { Input } from "@render/components/ui/input"
 
 import { parsePhoneNumberFromString } from "libphonenumber-js"
 import { cn } from "@render/lib/utils"
-import { Toaster } from "./ui/sonner"
+import { Toaster } from "@render/components/ui/sonner"
 
 const clientSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),

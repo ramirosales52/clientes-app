@@ -32,26 +32,6 @@ const turnoSchema = z.object({
   fecha: z.date({ required_error: "Seleccioná una fecha" }),
 });
 
-function MyComponent3() {
-  let usuario = {
-    nombre: "juanjose",
-    rol: "admin plus"
-  }
-
-  return (
-    <div>MyComponent3
-      <hr />
-      <p> Opción 3</p>
-      <hr />
-      <ul>
-        <li> nombre del usuario <strong> {usuario.nombre}  </strong>    </li>
-        <li> rol <b> {usuario.rol} </b> </li>
-      </ul>
-    </div>
-  )
-}
-
-
 function AgendarTurno() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);

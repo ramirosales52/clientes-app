@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from "react"
-import { Button } from "./ui/button"
+import { Badge } from "@render/components/ui/badge"
+import { Button } from "@render/components/ui/button"
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
-} from "./ui/table"
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@render/components/ui/table"
 import {
+  ChevronDown,
   ChevronsUpDown,
   ChevronUp,
-  ChevronDown,
 } from "lucide-react"
-import { Badge } from "./ui/badge"
+import { useEffect, useRef, useState } from "react"
 
 interface Cliente {
   id: string

@@ -8,7 +8,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "./ui/form";
+} from "@render/components/ui/form";
 import {
   CalendarDays,
   CalendarPlus,
@@ -27,18 +27,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Button } from "./ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Calendar } from "./ui/calendar";
-import { Toaster } from "./ui/sonner";
+} from "@render/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@render/components/ui/select";
+import { Button } from "@render/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@render/components/ui/popover";
+import { Calendar } from "@render/components/ui/calendar";
+import { Toaster } from "@render/components/ui/sonner";
 import { es } from "react-day-picker/locale";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { cn } from "@render/lib/utils";
-import { Separator } from "./ui/separator";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "./ui/command";
+import { Separator } from "@render/components/ui/separator";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@render/components/ui/command";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 

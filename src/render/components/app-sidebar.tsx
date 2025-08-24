@@ -13,8 +13,8 @@ import {
   SidebarMenuItem,
 } from "@render/components/ui/sidebar";
 import { Link, useLocation } from "react-router";
-import { ClientesModal } from "./clientes-modal";
-import TratamientosModal from "./tratamientos-modal";
+import { ClientesModal } from "../app/features/clientes/components/clientes-modal";
+import TratamientosModal from "../app/features/tratamientos/components/tratamientos-modal";
 import { Button } from "./ui/button";
 
 // Menu items.
