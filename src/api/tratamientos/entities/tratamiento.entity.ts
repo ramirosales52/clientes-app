@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToMany,
 } from 'typeorm';
 import {
@@ -45,4 +46,7 @@ export class Tratamiento {
 
   @UpdateDateColumn()
   actualizadoEn: Date;
+
+  @DeleteDateColumn()
+  eliminadoEn: Date | null;
 }

@@ -18,59 +18,60 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
+  Clock,
   Pencil,
-  Phone,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import type { ClienteConStats } from "@render/hooks/use-clientes";
-
-type SortField = "nombre" | "apellido" | "cantTurnos";
-type SortDirection = "asc" | "desc" | null;
+import { useState } from "react";
+import type { Tratamiento } from "@render/hooks/use-tratamientos";
 
 interface Props {
-  data: ClienteConStats[];
-  fetchMore?: () => void;
-  hasMore?: boolean;
-  loading?: boolean;
-  onEdit: (cliente: ClienteConStats) => void;
-  onDelete: (cliente: ClienteConStats) => void;
+  data: Tratamiento[];
+  onViewDetail: (tratamiento: Tratamiento) => void;
+  onEdit: (tratamiento: Tratamiento) => void;
+  onDelete: (tratamiento: Tratamiento) => void;
 }
 
-function TablaClientes({
+type SortField = "nombre" | "costo" | "duracion";
+type SortDirection = "asc" | "desc" | null;
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${mins}min`;
+}
+
+function getDurationVariant(
+  minutes: number
+): "default" | "secondary" | "outline" {
+  if (minutes <= 30) return "secondary";
+  if (minutes <= 60) return "default";
+  return "outline";
+}
+
+export default function TratamientosTable({
   data,
-  fetchMore,
-  hasMore = false,
-  loading = false,
+  onViewDetail,
   onEdit,
   onDelete,
 }: Props) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !fetchMore || !hasMore) return;
-
-    let debounceTimer: NodeJS.Timeout;
-
-    const handleScroll = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-
-      debounceTimer = setTimeout(() => {
-        const { scrollTop, scrollHeight, clientHeight } = el;
-        if (scrollTop + clientHeight >= scrollHeight - 150) {
-          fetchMore();
-        }
-      }, 150);
-    };
-
-    el.addEventListener("scroll", handleScroll);
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [fetchMore, hasMore]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -88,7 +89,7 @@ function TablaClientes({
     }
   };
 
-  const getSortedClients = () => {
+  const getSortedData = () => {
     if (!sortField || !sortDirection) return data;
 
     return [...data].sort((a, b) => {
@@ -119,17 +120,11 @@ function TablaClientes({
     return <ChevronsUpDown className="ml-2 h-4 w-4" />;
   };
 
-  const pluralizeTurnos = (count: number) =>
-    `${count} ${count === 1 ? "turno" : "turnos"}`;
-
-  const sortedClients = getSortedClients();
+  const sortedData = getSortedData();
 
   return (
     <TooltipProvider>
-      <div
-        className="h-full w-full overflow-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-muted scrollbar-track-transparent"
-        ref={scrollRef}
-      >
+      <div className="h-full w-full overflow-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-muted scrollbar-track-transparent">
         <Table>
           <TableHeader className="bg-background sticky top-0 z-20">
             <TableRow>
@@ -144,21 +139,20 @@ function TablaClientes({
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
-                onClick={() => handleSort("apellido")}
+                onClick={() => handleSort("costo")}
               >
                 <div className="flex items-center">
-                  Apellido
-                  {getSortIcon("apellido")}
+                  Precio
+                  {getSortIcon("costo")}
                 </div>
               </TableHead>
-              <TableHead>Telefono</TableHead>
               <TableHead
                 className="cursor-pointer select-none"
-                onClick={() => handleSort("cantTurnos")}
+                onClick={() => handleSort("duracion")}
               >
                 <div className="flex items-center">
-                  Turnos
-                  {getSortIcon("cantTurnos")}
+                  Duracion
+                  {getSortIcon("duracion")}
                 </div>
               </TableHead>
               <TableHead className="w-[200px]" />
@@ -166,32 +160,27 @@ function TablaClientes({
           </TableHeader>
 
           <TableBody>
-            {sortedClients.map((cliente) => (
-              <TableRow key={cliente.id}>
-                <TableCell className="font-medium">{cliente.nombre}</TableCell>
-                <TableCell>{cliente.apellido}</TableCell>
-                <TableCell>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center gap-1 text-muted-foreground cursor-default">
-                        <Phone className="h-3 w-3" />
-                        ({cliente.codArea}) {cliente.numero}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      +54 9 {cliente.codArea} {cliente.numero}
-                    </TooltipContent>
-                  </Tooltip>
+            {sortedData.map((tratamiento) => (
+              <TableRow key={tratamiento.id}>
+                <TableCell className="font-medium">
+                  {tratamiento.nombre}
                 </TableCell>
+                <TableCell>{formatCurrency(tratamiento.costo)}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{pluralizeTurnos(cliente.cantTurnos)}</Badge>
+                  <Badge
+                    variant={getDurationVariant(tratamiento.duracion)}
+                    className="gap-1"
+                  >
+                    <Clock className="h-3 w-3" />
+                    {formatDuration(tratamiento.duracion)}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/clientes/${cliente.id}`)}
+                      onClick={() => onViewDetail(tratamiento)}
                     >
                       Ver detalle
                     </Button>
@@ -201,7 +190,7 @@ function TablaClientes({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => onEdit(cliente)}
+                          onClick={() => onEdit(tratamiento)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -214,7 +203,7 @@ function TablaClientes({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => onDelete(cliente)}
+                          onClick={() => onDelete(tratamiento)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -227,15 +216,7 @@ function TablaClientes({
             ))}
           </TableBody>
         </Table>
-
-        {loading && (
-          <div className="py-4 text-center text-muted-foreground">
-            Cargando mas clientes...
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );
 }
-
-export default TablaClientes;

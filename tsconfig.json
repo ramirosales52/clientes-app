@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "jsx": "react-jsx",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "useDefineForClassFields": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -10,14 +14,22 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
-      "@render/*": ["src/render/*"],
-      "@main/*": ["src/main/*"],
-      "@components/*": ["src/render/components"]
+      "@render/*": [
+        "src/render/*"
+      ],
+      "@main/*": [
+        "src/main/*"
+      ],
+      "@components/*": [
+        "src/render/components"
+      ]
     },
     "resolveJsonModule": true,
-    "types": ["./src/preload"],
+    "types": [
+      "./src/preload"
+    ],
     "allowImportingTsExtensions": true,
-    "strict": false,
+    "strict": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -30,5 +42,7 @@
       "path": "./tsconfig.node.json"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

@@ -62,22 +62,27 @@ export class TratamientoService {
 
   async update(id: string, dto: UpdateTratamientoDto) {
     const tratamiento = await this.findOne(id);
+    const costoAnterior = tratamiento.costo;
 
-    if (dto.costo && dto.costo !== tratamiento.costo) {
+    // Primero actualizamos el tratamiento
+    Object.assign(tratamiento, dto);
+    const updated = await this.tratamientoRepo.save(tratamiento);
+
+    // Si el costo cambió, registrar en historial
+    if (dto.costo !== undefined && dto.costo !== costoAnterior) {
       const historial = this.historialRepo.create({
         precio: dto.costo,
-        tratamiento,
+        tratamiento: updated,
       });
       await this.historialRepo.save(historial);
     }
 
-    Object.assign(tratamiento, dto);
-    return this.tratamientoRepo.save(tratamiento);
+    return this.findOne(id);
   }
 
   async remove(id: string) {
     const tratamiento = await this.findOne(id);
-    return this.tratamientoRepo.remove(tratamiento);
+    return this.tratamientoRepo.softRemove(tratamiento);
   }
 }
 

@@ -183,7 +183,10 @@ export class TurnoService {
   }
 
   async update(id: string, dto: UpdateTurnoDto): Promise<Turno> {
-    const turno = await this.turnoRepository.findOneBy({ id });
+    const turno = await this.turnoRepository.findOne({
+      where: { id },
+      relations: ['cliente', 'tratamientos'],
+    });
     if (!turno) throw new NotFoundException('Turno no encontrado');
 
     if (dto.clienteId) {
@@ -200,7 +203,8 @@ export class TurnoService {
       fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : turno.fechaFin,
     });
 
-    return this.turnoRepository.save(turno);
+    await this.turnoRepository.save(turno);
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
