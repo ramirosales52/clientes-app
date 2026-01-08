@@ -8,6 +8,7 @@ import { ClienteModule } from "src/api/clientes/clientes.module";
 import { WhatsappModule } from "src/api/whatsapp/whatsapp.module";
 import { TurnoModule } from "src/api/turnos/turnos.module";
 import { TratamientoModule } from "src/api/tratamientos/tratamientos.module";
+import { PagosModule } from "src/api/pagos/pagos.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { TratamientoModule } from "src/api/tratamientos/tratamientos.module";
     WhatsappModule,
     TurnoModule,
     TratamientoModule,
+    PagosModule,
     ElectronModule.registerAsync({
       useFactory: async () => {
         const isDev = !app.isPackaged;

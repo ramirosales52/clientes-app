@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 
-export type EstadoTurno = "pendiente" | "confirmado" | "cancelado" | "realizado";
+export type EstadoTurno = "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
 
 export interface TurnoTratamiento {
   id: string;
@@ -19,6 +19,20 @@ export interface TurnoCliente {
   numero: string;
 }
 
+export interface TurnoPago {
+  id: string;
+  monto: number;
+  metodoPago: string;
+  fechaPago: string;
+}
+
+export interface HistorialEstado {
+  id: string;
+  estadoAnterior: EstadoTurno | null;
+  estadoNuevo: EstadoTurno;
+  fecha: string;
+}
+
 export interface Turno {
   id: string;
   fechaInicio: string;
@@ -27,6 +41,8 @@ export interface Turno {
   notas?: string;
   cliente: TurnoCliente;
   tratamientos: TurnoTratamiento[];
+  pagos: TurnoPago[];
+  historialEstados: HistorialEstado[];
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -118,9 +134,15 @@ export function useTurnos() {
     return updated;
   }, [updateTurno]);
 
-  const marcarRealizado = useCallback(async (id: string) => {
-    const updated = await updateTurno(id, { estado: "realizado" });
-    toast.success("Turno marcado como realizado");
+  const marcarCompletado = useCallback(async (id: string) => {
+    const updated = await updateTurno(id, { estado: "completado" });
+    toast.success("Turno marcado como completado");
+    return updated;
+  }, [updateTurno]);
+
+  const marcarAusente = useCallback(async (id: string) => {
+    const updated = await updateTurno(id, { estado: "ausente" });
+    toast.success("Turno marcado como ausente");
     return updated;
   }, [updateTurno]);
 
@@ -200,7 +222,8 @@ export function useTurnos() {
     deleteTurno,
     confirmarTurno,
     cancelarTurno,
-    marcarRealizado,
+    marcarCompletado,
+    marcarAusente,
     getFilteredTurnos,
     getTurnosHoy,
     getStats,

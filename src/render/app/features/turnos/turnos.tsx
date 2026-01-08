@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Calendar, CalendarDays, RefreshCw, Search } from "lucide-react";
 import { Button } from "@render/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@render/components/ui/card";
+import { Card, CardContent, CardHeader } from "@render/components/ui/card";
 import { Input } from "@render/components/ui/input";
 import {
   Select,
@@ -15,6 +15,8 @@ import { useTurnos, type EstadoTurno, type Turno } from "@render/hooks/use-turno
 import TurnosTable from "./components/turnos-table";
 import TurnosModal from "./components/turnos-modal";
 import { DeleteTurnoDialog } from "./components/delete-turno-dialog";
+import { PagoModal } from "./components/pago-modal";
+import { TurnoDetailSheet } from "./components/turno-detail-sheet";
 
 function Turnos() {
   const {
@@ -24,40 +26,73 @@ function Turnos() {
     fetchTurnos,
     confirmarTurno,
     cancelarTurno,
-    marcarRealizado,
+    marcarCompletado,
+    marcarAusente,
     deleteTurno,
     getFilteredTurnos,
     getTurnosHoy,
   } = useTurnos();
 
-  const [turnoToDelete, setTurnoToDelete] = useState<Turno | null>(null);
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pagoModalOpen, setPagoModalOpen] = useState(false);
 
   const filteredTurnos = getFilteredTurnos();
   const turnosHoy = getTurnosHoy();
 
-  const handleConfirmar = async (turno: Turno) => {
-    await confirmarTurno(turno.id);
+  const handleVerDetalle = (turno: Turno) => {
+    setTurnoSeleccionado(turno);
+    setSheetOpen(true);
   };
 
-  const handleCancelar = async (turno: Turno) => {
-    await cancelarTurno(turno.id);
+  const handleConfirmar = async () => {
+    if (turnoSeleccionado) {
+      await confirmarTurno(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
   };
 
-  const handleMarcarRealizado = async (turno: Turno) => {
-    await marcarRealizado(turno.id);
+  const handleCancelar = async () => {
+    if (turnoSeleccionado) {
+      await cancelarTurno(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
   };
 
-  const handleDeleteClick = (turno: Turno) => {
-    setTurnoToDelete(turno);
+  const handleMarcarCompletado = async () => {
+    if (turnoSeleccionado) {
+      await marcarCompletado(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
+  };
+
+  const handleMarcarAusente = async () => {
+    if (turnoSeleccionado) {
+      await marcarAusente(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
+  };
+
+  const handleRegistrarPago = () => {
+    setSheetOpen(false);
+    setPagoModalOpen(true);
+  };
+
+  const handlePagoSuccess = () => {
+    fetchTurnos();
+  };
+
+  const handleDeleteClick = () => {
+    setSheetOpen(false);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (turnoToDelete) {
-      await deleteTurno(turnoToDelete.id);
+    if (turnoSeleccionado) {
+      await deleteTurno(turnoSeleccionado.id);
       setDeleteDialogOpen(false);
-      setTurnoToDelete(null);
+      setTurnoSeleccionado(null);
     }
   };
 
@@ -82,7 +117,7 @@ function Turnos() {
   const hasActiveFilters = filters.estado || filters.clienteNombre || filters.fechaDesde;
 
   return (
-    <div className="flex flex-col h-full gap-4 p-4">
+    <div className="flex flex-col h-screen w-full gap-4 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold">Turnos</h1>
@@ -106,11 +141,8 @@ function Turnos() {
         </div>
       </div>
 
-      <Card>
+      <Card className="flex-1 flex flex-col overflow-hidden">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -133,7 +165,8 @@ function Turnos() {
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="pendiente">Pendiente</SelectItem>
                 <SelectItem value="confirmado">Confirmado</SelectItem>
-                <SelectItem value="realizado">Realizado</SelectItem>
+                <SelectItem value="completado">Completado</SelectItem>
+                <SelectItem value="ausente">Ausente</SelectItem>
                 <SelectItem value="cancelado">Cancelado</SelectItem>
               </SelectContent>
             </Select>
@@ -148,11 +181,9 @@ function Turnos() {
               {filteredTurnos.length} turno{filteredTurnos.length !== 1 ? "s" : ""}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </CardHeader>
 
-      <Card className="flex-1 overflow-hidden">
-        <CardContent className="p-0 h-full">
+        <CardContent className="flex-1 overflow-hidden p-4 pt-0">
           {filteredTurnos.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 py-12">
               <div className="rounded-full bg-muted p-6">
@@ -173,22 +204,35 @@ function Turnos() {
               {!hasActiveFilters && <TurnosModal />}
             </div>
           ) : (
-            <TurnosTable
-              data={filteredTurnos}
-              onConfirmar={handleConfirmar}
-              onCancelar={handleCancelar}
-              onMarcarRealizado={handleMarcarRealizado}
-              onDelete={handleDeleteClick}
-            />
+            <TurnosTable data={filteredTurnos} onVerDetalle={handleVerDetalle} />
           )}
         </CardContent>
       </Card>
 
+      <TurnoDetailSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        turno={turnoSeleccionado}
+        onConfirmar={handleConfirmar}
+        onCancelar={handleCancelar}
+        onMarcarCompletado={handleMarcarCompletado}
+        onMarcarAusente={handleMarcarAusente}
+        onRegistrarPago={handleRegistrarPago}
+        onDelete={handleDeleteClick}
+      />
+
       <DeleteTurnoDialog
-        turno={turnoToDelete}
+        turno={turnoSeleccionado}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
+      />
+
+      <PagoModal
+        open={pagoModalOpen}
+        onOpenChange={setPagoModalOpen}
+        turno={turnoSeleccionado}
+        onSuccess={handlePagoSuccess}
       />
     </div>
   );

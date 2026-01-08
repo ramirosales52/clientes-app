@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   JoinTable,
   ManyToMany,
+  OneToMany,
 } from 'typeorm';
 import { Cliente } from '../../clientes/entities/cliente.entity';
 import {
@@ -17,12 +18,15 @@ import {
   IsString,
 } from 'class-validator';
 import { Tratamiento } from '../../tratamientos/entities/tratamiento.entity';
+import type { Pago } from '../../pagos/entities/pago.entity';
+import type { HistorialEstadoTurno } from './historial-estado.entity';
 
 export enum EstadoTurno {
   PENDIENTE = 'pendiente',
   CONFIRMADO = 'confirmado',
+  COMPLETADO = 'completado',
   CANCELADO = 'cancelado',
-  REALIZADO = 'realizado',
+  AUSENTE = 'ausente',
 }
 
 @Entity()
@@ -59,6 +63,12 @@ export class Turno {
   })
   cliente: Cliente;
 
+  @OneToMany('Pago', 'turno', { eager: true })
+  pagos: Pago[];
+
+  @OneToMany('HistorialEstadoTurno', 'turno', { eager: true })
+  historialEstados: HistorialEstadoTurno[];
+
   @Column({ nullable: true })
   @IsOptional()
   @IsString()
@@ -70,4 +80,3 @@ export class Turno {
   @UpdateDateColumn()
   actualizadoEn: Date;
 }
-

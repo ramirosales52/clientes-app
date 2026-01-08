@@ -1,13 +1,6 @@
 import { Badge } from "@render/components/ui/badge";
 import { Button } from "@render/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@render/components/ui/dropdown-menu";
-import {
   Table,
   TableBody,
   TableCell,
@@ -23,18 +16,16 @@ import {
 } from "@render/components/ui/tooltip";
 import {
   Calendar,
-  Check,
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
   Clock,
-  MoreHorizontal,
+  Eye,
   Phone,
-  Trash2,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import type { EstadoTurno, Turno } from "@render/hooks/use-turnos";
+import { calcularDeudaTurno } from "@render/hooks/use-pagos";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 
@@ -42,10 +33,7 @@ dayjs.locale("es");
 
 interface Props {
   data: Turno[];
-  onConfirmar: (turno: Turno) => void;
-  onCancelar: (turno: Turno) => void;
-  onMarcarRealizado: (turno: Turno) => void;
-  onDelete: (turno: Turno) => void;
+  onVerDetalle: (turno: Turno) => void;
 }
 
 type SortField = "fechaInicio" | "cliente" | "estado";
@@ -87,21 +75,16 @@ const estadoConfig: Record<
 > = {
   pendiente: { label: "Pendiente", variant: "secondary" },
   confirmado: { label: "Confirmado", variant: "default" },
+  completado: { label: "Completado", variant: "outline" },
   cancelado: { label: "Cancelado", variant: "destructive" },
-  realizado: { label: "Realizado", variant: "outline" },
+  ausente: { label: "Ausente", variant: "destructive" },
 };
 
 function calcularCostoTotal(turno: Turno): number {
   return turno.tratamientos.reduce((total, t) => total + t.costo, 0);
 }
 
-export default function TurnosTable({
-  data,
-  onConfirmar,
-  onCancelar,
-  onMarcarRealizado,
-  onDelete,
-}: Props) {
+export default function TurnosTable({ data, onVerDetalle }: Props) {
   const [sortField, setSortField] = useState<SortField | null>("fechaInicio");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -155,12 +138,6 @@ export default function TurnosTable({
 
   const sortedData = getSortedData();
 
-  const canConfirmar = (turno: Turno) => turno.estado === "pendiente";
-  const canCancelar = (turno: Turno) =>
-    turno.estado === "pendiente" || turno.estado === "confirmado";
-  const canMarcarRealizado = (turno: Turno) =>
-    turno.estado === "confirmado" || turno.estado === "pendiente";
-
   return (
     <TooltipProvider>
       <div className="h-full w-full overflow-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-muted scrollbar-track-transparent">
@@ -197,7 +174,8 @@ export default function TurnosTable({
                 </div>
               </TableHead>
               <TableHead>Costo</TableHead>
-              <TableHead className="w-[80px]" />
+              <TableHead>Pago</TableHead>
+              <TableHead className="w-[100px]" />
             </TableRow>
           </TableHeader>
 
@@ -271,44 +249,32 @@ export default function TurnosTable({
                     {formatCurrency(calcularCostoTotal(turno))}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {canConfirmar(turno) && (
-                          <DropdownMenuItem onClick={() => onConfirmar(turno)}>
-                            <Check className="mr-2 h-4 w-4" />
-                            Confirmar
-                          </DropdownMenuItem>
-                        )}
-                        {canMarcarRealizado(turno) && (
-                          <DropdownMenuItem onClick={() => onMarcarRealizado(turno)}>
-                            <Check className="mr-2 h-4 w-4" />
-                            Marcar realizado
-                          </DropdownMenuItem>
-                        )}
-                        {canCancelar(turno) && (
-                          <DropdownMenuItem
-                            onClick={() => onCancelar(turno)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <X className="mr-2 h-4 w-4" />
-                            Cancelar turno
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDelete(turno)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {turno.estado === "completado" && (() => {
+                      const deuda = calcularDeudaTurno(turno.tratamientos, turno.pagos || []);
+                      if (deuda <= 0) {
+                        return (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            Pagado
+                          </Badge>
+                        );
+                      }
+                      return (
+                        <Badge variant="outline" className="text-orange-600 border-orange-600">
+                          Debe {formatCurrency(deuda)}
+                        </Badge>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
+<Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => onVerDetalle(turno)}
+                                      className="gap-1"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                      Ver detalle
+                                    </Button>
                   </TableCell>
                 </TableRow>
               );

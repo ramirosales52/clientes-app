@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, LessThan, MoreThan, Repository } from 'typeorm';
-import { Turno } from './entities/turno.entity';
+import { Turno, EstadoTurno } from './entities/turno.entity';
+import { HistorialEstadoTurno } from './entities/historial-estado.entity';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { Cliente } from '../clientes/entities/cliente.entity';
@@ -25,6 +26,9 @@ export class TurnoService {
 
     @InjectRepository(Tratamiento)
     private tratamientoRepository: Repository<Tratamiento>,
+
+    @InjectRepository(HistorialEstadoTurno)
+    private historialRepository: Repository<HistorialEstadoTurno>,
   ) { }
 
   async create(createTurnoDto: CreateTurnoDto): Promise<Turno> {
@@ -66,7 +70,25 @@ export class TurnoService {
       tratamientos
     });
 
-    return this.turnoRepository.save(turno);
+    const saved = await this.turnoRepository.save(turno);
+
+    // Registrar estado inicial en historial
+    await this.registrarCambioEstado(saved, null, EstadoTurno.PENDIENTE);
+
+    return this.findOne(saved.id);
+  }
+
+  private async registrarCambioEstado(
+    turno: Turno,
+    estadoAnterior: EstadoTurno | null,
+    estadoNuevo: EstadoTurno,
+  ): Promise<void> {
+    const historial = this.historialRepository.create({
+      turno,
+      estadoAnterior,
+      estadoNuevo,
+    });
+    await this.historialRepository.save(historial);
   }
 
   private bloquesTrabajo(fecha: string): Interval[] {
@@ -189,6 +211,8 @@ export class TurnoService {
     });
     if (!turno) throw new NotFoundException('Turno no encontrado');
 
+    const estadoAnterior = turno.estado;
+
     if (dto.clienteId) {
       const cliente = await this.clienteRepository.findOneBy({
         id: dto.clienteId,
@@ -204,6 +228,12 @@ export class TurnoService {
     });
 
     await this.turnoRepository.save(turno);
+
+    // Registrar cambio de estado si cambió
+    if (dto.estado && dto.estado !== estadoAnterior) {
+      await this.registrarCambioEstado(turno, estadoAnterior, dto.estado);
+    }
+
     return this.findOne(id);
   }
 
