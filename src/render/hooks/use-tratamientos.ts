@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { dataEvents, EVENTS } from "@render/lib/events";
 
 export interface PrecioHistorial {
   id: string;
@@ -109,6 +110,12 @@ export function useTratamientos() {
 
   useEffect(() => {
     fetchTratamientos();
+  }, [fetchTratamientos]);
+
+  // Listen for tratamiento created events
+  useEffect(() => {
+    const unsub = dataEvents.on(EVENTS.TRATAMIENTO_CREATED, fetchTratamientos);
+    return () => unsub();
   }, [fetchTratamientos]);
 
   return {

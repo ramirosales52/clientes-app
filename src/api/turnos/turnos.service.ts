@@ -190,6 +190,26 @@ export class TurnoService {
     return resultados;
   }
 
+  async obtenerHorasOcupadas(fecha: string): Promise<{ ocupadas: [string, string][] }> {
+    const inicioDia = dayjs(`${fecha} 00:00`).toDate();
+    const finDia = dayjs(`${fecha} 23:59`).toDate();
+
+    const turnosOcupados = await this.turnoRepository.find({
+      where: {
+        fechaInicio: Between(inicioDia, finDia),
+        estado: In([EstadoTurno.PENDIENTE, EstadoTurno.CONFIRMADO]),
+      },
+      order: { fechaInicio: 'ASC' },
+    });
+
+    const ocupadas: [string, string][] = turnosOcupados.map(t => [
+      dayjs(t.fechaInicio).format('HH:mm'),
+      dayjs(t.fechaFin).format('HH:mm'),
+    ]);
+
+    return { ocupadas };
+  }
+
   findAll(): Promise<Turno[]> {
     return this.turnoRepository.find({ relations: ['cliente'] });
   }

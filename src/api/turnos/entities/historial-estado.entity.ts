@@ -18,7 +18,7 @@ export class HistorialEstadoTurno {
   })
   turno: Turno;
 
-  @Column({ type: 'text', enum: EstadoTurno })
+  @Column({ type: 'text', enum: EstadoTurno, nullable: true })
   estadoAnterior: EstadoTurno | null;
 
   @Column({ type: 'text', enum: EstadoTurno })

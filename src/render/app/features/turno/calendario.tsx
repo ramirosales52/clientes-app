@@ -1,11 +1,13 @@
 import { Card, CardContent } from "@render/components/ui/card";
+import { Button } from "@render/components/ui/button";
 import { Calendar, dayjsLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 import { useEffect, useState } from "react";
 import axios from "axios";
-import TurnosModal from "./components/turnos-modal";
+import { Link } from "react-router";
+import { CalendarPlus } from "lucide-react";
 import { cn } from "@render/lib/utils";
 
 const localizer = dayjsLocalizer(dayjs)
@@ -25,19 +27,19 @@ type Turno = {
 };
 
 const messages = {
-  allDay: "Todo el día",
+  allDay: "Todo el dia",
   previous: "Anterior",
   next: "Siguiente",
   today: "Hoy",
   month: "Mes",
   week: "Semana",
-  day: "Día",
+  day: "Dia",
   agenda: "Agenda",
   date: "Fecha",
   time: "Hora",
   event: "Evento",
   noEventsInRange: "Sin eventos",
-  showMore: (total: number) => `+${total} más`,
+  showMore: (total: number) => `+${total} mas`,
 };
 
 function Calendario() {
@@ -109,8 +111,13 @@ function Calendario() {
   return (
     <div className="flex flex-col h-screen w-full p-4 space-y-4">
       <div className="flex justify-between">
-        <h1 className="text-xl font-bold">Turnos</h1>
-        <TurnosModal />
+        <h1 className="text-xl font-bold">Calendario</h1>
+        <Button asChild>
+          <Link to="/turno/nuevo">
+            <CalendarPlus className="h-4 w-4 mr-2" />
+            Agendar turno
+          </Link>
+        </Button>
       </div>
 
       <Card className="flex-1 bg-background">
@@ -138,4 +145,3 @@ function Calendario() {
 }
 
 export default Calendario;
-

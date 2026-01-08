@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   Calendar,
@@ -9,6 +9,7 @@ import {
   Clock,
   Phone,
   Pencil,
+  Plus,
   Trash2,
   User,
   Heart,
@@ -37,7 +38,6 @@ import {
 } from "@render/hooks/use-clientes";
 import { ClientesModal } from "./components/clientes-modal";
 import { DeleteClienteDialog } from "./components/delete-cliente-dialog";
-import TurnosModal from "../turnos/components/turnos-modal";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -204,7 +204,12 @@ function ClienteDetalle() {
             {cliente.nombre} {cliente.apellido}
           </h1>
         </div>
-        <TurnosModal />
+        <Button asChild>
+          <Link to="/turno/nuevo">
+            <Plus className="h-4 w-4 mr-2" />
+            Agendar turno
+          </Link>
+        </Button>
       </div>
 
       {/* Content */}
@@ -441,7 +446,12 @@ function ClienteDetalle() {
                 <p className="text-sm text-muted-foreground">
                   Este cliente aun no tiene turnos
                 </p>
-                <TurnosModal className="mt-3" />
+                <Button asChild className="mt-3">
+                  <Link to="/turno/nuevo">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agendar turno
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           )}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Calendar, CalendarDays, RefreshCw, Search } from "lucide-react";
+import { Link } from "react-router";
+import { Calendar, CalendarDays, CalendarPlus, RefreshCw, Search } from "lucide-react";
 import { Button } from "@render/components/ui/button";
 import { Card, CardContent, CardHeader } from "@render/components/ui/card";
 import { Input } from "@render/components/ui/input";
@@ -13,12 +14,11 @@ import {
 import { Badge } from "@render/components/ui/badge";
 import { useTurnos, type EstadoTurno, type Turno } from "@render/hooks/use-turnos";
 import TurnosTable from "./components/turnos-table";
-import TurnosModal from "./components/turnos-modal";
 import { DeleteTurnoDialog } from "./components/delete-turno-dialog";
 import { PagoModal } from "./components/pago-modal";
 import { TurnoDetailSheet } from "./components/turno-detail-sheet";
 
-function Turnos() {
+function Turno() {
   const {
     loading,
     filters,
@@ -137,7 +137,12 @@ function Turnos() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <TurnosModal />
+          <Button asChild>
+            <Link to="/turno/nuevo">
+              <CalendarPlus className="h-4 w-4 mr-2" />
+              Agendar turno
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -201,7 +206,14 @@ function Turnos() {
                     : "Agenda tu primer turno para comenzar"}
                 </p>
               </div>
-              {!hasActiveFilters && <TurnosModal />}
+              {!hasActiveFilters && (
+                <Button asChild>
+                  <Link to="/turno/nuevo">
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Agendar turno
+                  </Link>
+                </Button>
+              )}
             </div>
           ) : (
             <TurnosTable data={filteredTurnos} onVerDetalle={handleVerDetalle} />
@@ -238,4 +250,4 @@ function Turnos() {
   );
 }
 
-export default Turnos;
+export default Turno;

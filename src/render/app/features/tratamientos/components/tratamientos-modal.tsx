@@ -21,10 +21,13 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@render/lib/utils";
+import { dataEvents, EVENTS } from "@render/lib/events";
 import { Button } from "@render/components/ui/button";
 import { Separator } from "@render/components/ui/separator";
 import { Input } from "@render/components/ui/input";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import axios from "axios";
 import type { Tratamiento } from "@render/hooks/use-tratamientos";
 
 type Props = {
@@ -32,7 +35,7 @@ type Props = {
   tratamiento?: Tratamiento | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onSubmit: (data: TratamientoFormData) => Promise<void>;
+  onSubmit?: (data: TratamientoFormData) => Promise<void>;
 };
 
 const tratamientoSchema = z.object({
@@ -56,10 +59,12 @@ function TratamientosModal({
   tratamiento,
   open,
   onOpenChange,
-  onSubmit,
+  onSubmit: externalOnSubmit,
 }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const isEditing = !!tratamiento;
+  const isControlled = open !== undefined;
 
   const form = useForm<TratamientoFormData>({
     resolver: zodResolver(tratamientoSchema),
@@ -89,11 +94,19 @@ function TratamientosModal({
   const handleSubmit = async (data: TratamientoFormData) => {
     try {
       setIsSubmitting(true);
-      await onSubmit(data);
+      if (externalOnSubmit) {
+        await externalOnSubmit(data);
+        onOpenChange?.(false);
+      } else {
+        await axios.post("http://localhost:3000/tratamientos", data);
+        toast.success("Tratamiento creado correctamente");
+        setInternalOpen(false);
+        dataEvents.emit(EVENTS.TRATAMIENTO_CREATED);
+      }
       form.reset();
-      onOpenChange?.(false);
     } catch (error) {
       console.error(error);
+      toast.error("Error al guardar tratamiento");
     } finally {
       setIsSubmitting(false);
     }
@@ -221,7 +234,7 @@ function TratamientosModal({
     </DialogContent>
   );
 
-  if (open !== undefined && onOpenChange) {
+  if (isControlled && onOpenChange) {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
         {dialogContent}
@@ -230,7 +243,15 @@ function TratamientosModal({
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange}>
+    <Dialog
+      open={internalOpen}
+      onOpenChange={(isOpen) => {
+        setInternalOpen(isOpen);
+        if (!isOpen) {
+          form.reset();
+        }
+      }}
+    >
       <DialogTrigger className={className} asChild>
         <Button className={className}>
           <ClipboardPen />

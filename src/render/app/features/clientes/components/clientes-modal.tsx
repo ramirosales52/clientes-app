@@ -31,7 +31,8 @@ import { Textarea } from "@render/components/ui/textarea";
 
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { cn } from "@render/lib/utils";
-import { useEffect } from "react";
+import { dataEvents, EVENTS } from "@render/lib/events";
+import { useEffect, useState } from "react";
 import type { Cliente, UpdateClienteData } from "@render/hooks/use-clientes";
 
 const clientSchema = z
@@ -74,6 +75,7 @@ export function ClientesModal({
 }: Props) {
   const isControlled = controlledOpen !== undefined;
   const isEditMode = !!cliente;
+  const [internalOpen, setInternalOpen] = useState(false);
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
@@ -121,6 +123,8 @@ export function ClientesModal({
         });
         toast.success("Cliente creado correctamente");
         form.reset();
+        setInternalOpen(false);
+        dataEvents.emit(EVENTS.CLIENTE_CREATED);
       }
     } catch (err) {
       console.error("Error guardando el cliente:", err);
@@ -296,7 +300,9 @@ export function ClientesModal({
   // Uncontrolled mode (for create with trigger button)
   return (
     <Dialog
+      open={internalOpen}
       onOpenChange={(isOpen) => {
+        setInternalOpen(isOpen);
         if (!isOpen) {
           form.reset();
         }

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   CalendarDays,
   CalendarPlus,
@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@render/components/ui/
 import { Button } from "@render/components/ui/button";
 import { Badge } from "@render/components/ui/badge";
 import { useDashboard } from "@render/hooks/use-dashboard";
-import TurnosModal from "./features/turnos/components/turnos-modal";
 import { ClientesModal } from "./features/clientes/components/clientes-modal";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
@@ -90,7 +89,7 @@ function Principal() {
             <Button
               variant="link"
               className="text-xs p-0 h-auto"
-              onClick={() => navigate("/turnos?estado=pendiente")}
+              onClick={() => navigate("/turno?estado=pendiente")}
             >
               Ver pendientes
             </Button>
@@ -142,7 +141,12 @@ function Principal() {
             <CardTitle className="text-base">Acciones rapidas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <TurnosModal className="w-full justify-start" />
+            <Button asChild className="w-full justify-start">
+              <Link to="/turno/nuevo">
+                <CalendarPlus className="mr-2 h-4 w-4" />
+                Agendar turno
+              </Link>
+            </Button>
             <ClientesModal className="w-full justify-start" />
             <Button
               variant="outline"
@@ -163,7 +167,7 @@ function Principal() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/turnos")}
+                onClick={() => navigate("/turno")}
               >
                 Ver todos
               </Button>

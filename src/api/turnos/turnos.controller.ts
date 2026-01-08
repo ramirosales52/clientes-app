@@ -38,6 +38,14 @@ export class TurnoController {
     return this.turnoService.obtenerDisponibilidades(fecha, dur);
   }
 
+  @Get('ocupados')
+  async ocupados(@Query('fecha') fecha: string) {
+    if (!fecha) {
+      throw new Error('Parámetro requerido: fecha (MM-DD-YYYY)');
+    }
+    return this.turnoService.obtenerHorasOcupadas(fecha);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.turnoService.findOne(id);

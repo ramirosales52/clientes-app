@@ -21,8 +21,16 @@ export class ClienteService {
     private clienteRepository: Repository<Cliente>,
   ) { }
 
-  create(dto: CreateClienteDto): Promise<Cliente> {
+  async create(dto: CreateClienteDto): Promise<Cliente> {
     validarTelefonoCompleto(dto.codArea, dto.numero);
+
+    // Check if number already exists
+    const existing = await this.clienteRepository.findOne({
+      where: { numero: dto.numero },
+    });
+    if (existing) {
+      throw new BadRequestException('Ya existe un cliente con ese número de teléfono');
+    }
 
     const cliente = this.clienteRepository.create(dto);
     return this.clienteRepository.save(cliente);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { dataEvents, EVENTS } from "@render/lib/events";
 
 export interface Turno {
   id: string;
@@ -207,6 +208,12 @@ export function useClientes() {
 
   useEffect(() => {
     fetchClientes(1);
+  }, [fetchClientes]);
+
+  // Listen for cliente created events
+  useEffect(() => {
+    const unsub = dataEvents.on(EVENTS.CLIENTE_CREATED, () => fetchClientes(1));
+    return () => unsub();
   }, [fetchClientes]);
 
   return {

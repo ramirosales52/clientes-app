@@ -36,7 +36,7 @@ const items = [
   },
   {
     title: "Turnos",
-    url: "/turnos",
+    url: "/turno",
     icon: NotebookText,
   },
   {
@@ -81,15 +81,15 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Acciones rápidas</SidebarGroupLabel>
+          <SidebarGroupLabel>Acciones rapidas</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <ClientesModal className="w-full" />
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <Button className="w-full">
-                  <Link to="/agendar-turno" className="flex gap-2">
+                <Button asChild className="w-full">
+                  <Link to="/turno/nuevo" className="flex gap-2">
                     <CalendarPlus />
                     <span>Agendar turno</span>
                   </Link>
