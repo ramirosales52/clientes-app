@@ -41,7 +41,7 @@ import { PagosModule } from "src/api/pagos/pagos.module";
         });
 
         const URL = isDev
-          ? process.env.DS_RENDERER_URL
+          ? process.env.DS_RENDERER_URL ?? 'http://localhost:5173'
           : `file://${join(app.getAppPath(), "dist/render/index.html")}`;
 
         win.loadURL(URL);

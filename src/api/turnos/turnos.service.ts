@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, LessThan, MoreThan, Repository } from 'typeorm';
 import { Turno, EstadoTurno } from './entities/turno.entity';
@@ -7,6 +7,7 @@ import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { Cliente } from '../clientes/entities/cliente.entity';
 import { Tratamiento } from '../tratamientos/entities/tratamiento.entity';
+import { RecordatorioService } from '../whatsapp/recordatorio.service';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import dayjs from 'dayjs';
 
@@ -29,6 +30,9 @@ export class TurnoService {
 
     @InjectRepository(HistorialEstadoTurno)
     private historialRepository: Repository<HistorialEstadoTurno>,
+
+    @Inject(forwardRef(() => RecordatorioService))
+    private recordatorioService: RecordatorioService,
   ) { }
 
   async create(createTurnoDto: CreateTurnoDto): Promise<Turno> {
@@ -75,7 +79,13 @@ export class TurnoService {
     // Registrar estado inicial en historial
     await this.registrarCambioEstado(saved, null, EstadoTurno.PENDIENTE);
 
-    return this.findOne(saved.id);
+    // Obtener turno completo con relaciones para crear recordatorios
+    const turnoCompleto = await this.findOne(saved.id);
+
+    // Crear recordatorios automáticos de WhatsApp
+    await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+
+    return turnoCompleto;
   }
 
   private async registrarCambioEstado(
@@ -217,7 +227,7 @@ export class TurnoService {
   async findOne(id: string): Promise<Turno> {
     const turno = await this.turnoRepository.findOne({
       where: { id },
-      relations: ['cliente'],
+      relations: ['cliente', 'tratamientos'],
     });
 
     if (!turno) throw new NotFoundException('Turno no encontrado');
@@ -252,6 +262,17 @@ export class TurnoService {
     // Registrar cambio de estado si cambió
     if (dto.estado && dto.estado !== estadoAnterior) {
       await this.registrarCambioEstado(turno, estadoAnterior, dto.estado);
+
+      // Si se cancela el turno, cancelar recordatorios pendientes
+      if (dto.estado === EstadoTurno.CANCELADO) {
+        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
+      }
+
+      // Si se confirma el turno, crear el recordatorio previo (1h antes)
+      if (dto.estado === EstadoTurno.CONFIRMADO) {
+        const turnoCompleto = await this.findOne(id);
+        await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
+      }
     }
 
     return this.findOne(id);

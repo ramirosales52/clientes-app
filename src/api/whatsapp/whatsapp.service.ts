@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import { Client, LocalAuth, Message } from 'whatsapp-web.js';
 import * as qrcode from 'qrcode';
+
+type MessageHandler = (telefono: string, mensaje: string) => Promise<void>;
 
 @Injectable()
 export class WhatsappService {
@@ -9,12 +11,26 @@ export class WhatsappService {
   private qrCodeDataUrl: string | null = null;
   private isReady = false;
   private isAuthenticated = false;
+  private messageHandler: MessageHandler | null = null;
+
+  /**
+   * Registra un handler para procesar mensajes entrantes
+   */
+  onMessage(handler: MessageHandler) {
+    this.messageHandler = handler;
+  }
 
   iniciarSesion() {
     if (this.client) return;
 
     this.client = new Client({
       authStrategy: new LocalAuth(),
+      puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: '/usr/bin/chromium',
+      },
+      restartOnAuthFail: true,
     });
 
     this.client.on('qr', async (qr) => {
@@ -32,9 +48,21 @@ export class WhatsappService {
       this.isReady = true;
     });
 
-    this.client.on('message', async (message) => {
+    this.client.on('message', async (message: Message) => {
+      // Comando de prueba
       if (message.body === '!app') {
         await message.reply('app');
+        return;
+      }
+
+      // Procesar respuestas de texto
+      if (this.messageHandler) {
+        try {
+          const telefono = message.from.replace('@c.us', '');
+          await this.messageHandler(telefono, message.body);
+        } catch (error) {
+          this.logger.error('Error procesando mensaje:', error);
+        }
       }
     });
 
@@ -65,6 +93,10 @@ export class WhatsappService {
   }
 
   async sendMessage(phone: string, message: string) {
+    if (!this.client) {
+      throw new Error('Cliente no inicializado');
+    }
+
     const numberId = await this.client.getNumberId(phone);
     if (!numberId) {
       throw new Error('Número inválido');
