@@ -1,13 +1,16 @@
 import { Badge } from '@render/components/ui/badge';
 import { Button } from '@render/components/ui/button';
+import { Input } from '@render/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@render/components/ui/select';
 import { Separator } from '@render/components/ui/separator';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@render/components/ui/sheet';
 import { Skeleton } from '@render/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@render/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@render/components/ui/tabs';
 import { Textarea } from '@render/components/ui/textarea';
 import dayjs from 'dayjs';
-import { Calendar, Check, CheckCircle2, Clock, Eye, MessageSquare, Pencil, Phone, Save, Send, Sparkles, User, X, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Calendar, Check, CheckCircle2, Clock, Eye, MessageSquare, Pencil, Phone, Save, Search, Send, Sparkles, User, X, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useRecordatorios } from '../hooks';
 import type { EstadoRecordatorio, Recordatorio } from '../types';
 
@@ -83,6 +86,65 @@ export function ListaRecordatorios() {
   const [editando, setEditando] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
+  // Filtros
+  const [estadoFilter, setEstadoFilter] = useState<string>('todos');
+  const [tipoFilter, setTipoFilter] = useState<string>('todos');
+  const [fechaFilter, setFechaFilter] = useState<string>('todos');
+  const [busqueda, setBusqueda] = useState('');
+
+  // Filtrar recordatorios
+  const recordatoriosFiltrados = useMemo(() => {
+    let resultado = [...recordatorios];
+
+    // Filtro por estado
+    if (estadoFilter !== 'todos') {
+      resultado = resultado.filter(r => r.estado === estadoFilter);
+    }
+
+    // Filtro por tipo
+    if (tipoFilter !== 'todos') {
+      resultado = resultado.filter(r => r.tipo === tipoFilter);
+    }
+
+    // Filtro por fecha
+    if (fechaFilter !== 'todos') {
+      const hoy = dayjs().startOf('day');
+      resultado = resultado.filter(r => {
+        const fechaProgramada = dayjs(r.fechaProgramada);
+        switch (fechaFilter) {
+          case 'hoy':
+            return fechaProgramada.isSame(hoy, 'day');
+          case 'semana':
+            return fechaProgramada.isAfter(hoy.subtract(1, 'day')) && fechaProgramada.isBefore(hoy.add(7, 'day'));
+          case 'mes':
+            return fechaProgramada.isSame(hoy, 'month');
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Filtro por búsqueda
+    if (busqueda.trim()) {
+      const search = busqueda.toLowerCase();
+      resultado = resultado.filter(r => 
+        r.cliente?.nombre?.toLowerCase().includes(search) ||
+        r.cliente?.apellido?.toLowerCase().includes(search) ||
+        r.telefono?.includes(search)
+      );
+    }
+
+    return resultado;
+  }, [recordatorios, estadoFilter, tipoFilter, fechaFilter, busqueda]);
+
+  // Contadores para los tabs
+  const contadores = useMemo(() => ({
+    todos: recordatorios.length,
+    programado: recordatorios.filter(r => r.estado === 'programado').length,
+    enviado: recordatorios.filter(r => r.estado === 'enviado').length,
+    fallido: recordatorios.filter(r => r.estado === 'fallido').length,
+  }), [recordatorios]);
+
   const handleOpenDetail = (rec: Recordatorio) => {
     setSelectedRecordatorio(rec);
     setMensajeEditado(rec.mensaje);
@@ -139,82 +201,160 @@ export function ListaRecordatorios() {
 
   return (
     <>
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-[200px]">Cliente</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Fecha de envío</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recordatorios.map((rec) => {
-              const config = estadoConfig[rec.estado];
+      <div className="space-y-4">
+        {/* Tabs por estado */}
+        <Tabs value={estadoFilter} onValueChange={setEstadoFilter}>
+          <TabsList>
+            <TabsTrigger value="todos">
+              Todos
+              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                {contadores.todos}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="programado">
+              Programados
+              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                {contadores.programado}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="enviado">
+              Enviados
+              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                {contadores.enviado}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="fallido">
+              Fallidos
+              {contadores.fallido > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
+                  {contadores.fallido}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-              return (
-                <TableRow key={rec.id} className="hover:bg-muted/20">
-                  <TableCell className="font-medium">
-                    {rec.cliente?.nombre} {rec.cliente?.apellido}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {tipoLabels[rec.tipo] || rec.tipo}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {dayjs(rec.fechaProgramada).format('DD/MM/YYYY HH:mm')}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
-                    {rec.telefono}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`${config.color} border font-normal`}>
-                      {config.label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 text-xs gap-1.5"
-                        onClick={() => handleOpenDetail(rec)}
-                      >
-                        <Eye size={14} />
-                        Ver detalle
-                      </Button>
-                      
-                      {rec.estado === 'programado' && (
-                        <>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive" 
-                            onClick={() => cancelarRecordatorio(rec.id)}
-                            title="Cancelar envío"
-                          >
-                            <X size={14} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-muted-foreground hover:text-primary" 
-                            onClick={() => enviarRecordatorio(rec.id)}
-                            title="Enviar ahora"
-                          >
-                            <Send size={14} />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
+        {/* Filtros secundarios */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los tipos</SelectItem>
+              <SelectItem value="previo">Recordatorio</SelectItem>
+              <SelectItem value="confirmacion">Confirmacion</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={fechaFilter} onValueChange={setFechaFilter}>
+            <SelectTrigger className="w-[140px] h-9">
+              <SelectValue placeholder="Fecha" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas las fechas</SelectItem>
+              <SelectItem value="hoy">Hoy</SelectItem>
+              <SelectItem value="semana">Esta semana</SelectItem>
+              <SelectItem value="mes">Este mes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Tabla */}
+        {recordatoriosFiltrados.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground border rounded-lg bg-muted/5">
+            <MessageSquare className="h-10 w-10 mb-3 opacity-30" />
+            <p className="font-medium">No hay recordatorios que coincidan</p>
+            <p className="text-sm">Proba ajustando los filtros.</p>
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="w-[200px]">Cliente</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Fecha de envio</TableHead>
+                  <TableHead>Telefono</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {recordatoriosFiltrados.map((rec) => {
+                  const config = estadoConfig[rec.estado];
+
+                  return (
+                    <TableRow key={rec.id} className="hover:bg-muted/20">
+                      <TableCell className="font-medium">
+                        {rec.cliente?.nombre} {rec.cliente?.apellido}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tipoLabels[rec.tipo] || rec.tipo}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {dayjs(rec.fechaProgramada).format('DD/MM/YYYY HH:mm')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-xs">
+                        {rec.telefono}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`${config.color} border font-normal`}>
+                          {config.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 text-xs gap-1.5"
+                            onClick={() => handleOpenDetail(rec)}
+                          >
+                            <Eye size={14} />
+                            Ver detalle
+                          </Button>
+                          
+                          {rec.estado === 'programado' && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive" 
+                                onClick={() => cancelarRecordatorio(rec.id)}
+                                title="Cancelar envío"
+                              >
+                                <X size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-muted-foreground hover:text-primary" 
+                                onClick={() => enviarRecordatorio(rec.id)}
+                                title="Enviar ahora"
+                              >
+                                <Send size={14} />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

@@ -6,7 +6,7 @@ interface TurnoBasico {
   id: string;
   fechaInicio: string;
   fechaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado" | "realizado";
+  estado: "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
   cliente: {
     id: string;
     nombre: string;
@@ -67,17 +67,17 @@ export function useDashboard() {
         );
       });
 
-      // Pendientes (no cancelados, no realizados)
+      // Pendientes (no cancelados, no completados)
       const pendientes = turnos.filter(
         (t) => t.estado === "pendiente"
       ).length;
 
-      // Ingresos del mes (turnos realizados)
+      // Ingresos del mes (turnos completados)
       const ingresosMes = turnos
         .filter((t) => {
           const fecha = dayjs(t.fechaInicio);
           return (
-            t.estado === "realizado" &&
+            t.estado === "completado" &&
             fecha.isAfter(inicioMes) &&
             fecha.isBefore(finMes)
           );

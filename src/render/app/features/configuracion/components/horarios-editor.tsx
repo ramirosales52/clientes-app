@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@render/components/ui/button";
 import { Switch } from "@render/components/ui/switch";
 import { Input } from "@render/components/ui/input";
@@ -22,14 +22,29 @@ interface HorariosEditorProps {
 }
 
 function HorariosEditor({ horarios, onSave }: HorariosEditorProps) {
-  const [localHorarios, setLocalHorarios] = useState<HorarioSemanal[]>(horarios);
+  const [localHorarios, setLocalHorarios] = useState<HorarioSemanal[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Sincronizar estado local cuando cambian los props
+  useEffect(() => {
+    // Clonar profundamente para evitar mutaciones
+    const cloned = horarios.map(h => ({
+      ...h,
+      franjas: h.franjas ? [...h.franjas.map(f => ({ ...f }))] : []
+    }));
+    setLocalHorarios(cloned);
+  }, [horarios]);
 
   const handleActivoChange = (diaSemana: number, activo: boolean) => {
     setLocalHorarios((prev) =>
-      prev.map((h) =>
-        h.diaSemana === diaSemana ? { ...h, activo } : h
-      )
+      prev.map((h) => {
+        if (h.diaSemana !== diaSemana) return h;
+        // Si se activa y no tiene franjas, agregar una por defecto
+        const franjas = activo && h.franjas.length === 0
+          ? [{ horaInicio: "09:00", horaFin: "18:00" }]
+          : h.franjas;
+        return { ...h, activo, franjas };
+      })
     );
   };
 

@@ -241,7 +241,9 @@ export class ConfiguracionService {
    * Prioridad: DiaEspecial > Temporada > HorarioSemanal
    */
   async getHorariosParaFecha(fecha: string): Promise<HorariosParaFecha> {
-    const fechaDate = new Date(fecha);
+    // Agregar T12:00:00 para evitar problemas de timezone
+    // (si solo pasamos YYYY-MM-DD, JS lo interpreta como UTC medianoche)
+    const fechaDate = new Date(fecha + "T12:00:00");
     const diaSemana = fechaDate.getDay();
 
     // 1. Verificar si es un día especial

@@ -267,7 +267,17 @@ function NuevoTurno() {
       const res = await axios.get("http://localhost:3000/configuracion/horarios-para-fecha", {
         params: { fecha: dayjs(fechaSeleccionada).format("YYYY-MM-DD") },
       });
-      setHorariosDia(res.data);
+      // El backend devuelve "cerrado", convertimos a "abierto" para el frontend
+      const data = res.data;
+      setHorariosDia({
+        abierto: !data.cerrado,
+        franjas: (data.franjas || []).map((f: { horaInicio: string; horaFin: string }) => ({
+          inicio: f.horaInicio,
+          fin: f.horaFin,
+        })),
+        origen: data.tipo === "especial" ? "dia_especial" : data.tipo === "temporada" ? "temporada" : "horario_semanal",
+        nombre: data.motivo || data.temporadaNombre,
+      });
     } catch (error) {
       console.error("Error al obtener horarios del día:", error);
       // Fallback a horario por defecto si falla

@@ -7,7 +7,7 @@ export interface Turno {
   id: string;
   fechaInicio: string;
   fechaFin: string;
-  estado: "pendiente" | "confirmado" | "cancelado" | "realizado";
+  estado: "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
   notas?: string;
   tratamientos: {
     id: string;
@@ -175,7 +175,7 @@ export function useClientes() {
       {} as Record<string, number>
     );
 
-    const turnosRealizados = cliente.turnos.filter((t) => t.estado === "realizado");
+    const turnosRealizados = cliente.turnos.filter((t) => t.estado === "completado");
     const gastoTotal = turnosRealizados.reduce((total, turno) => {
       return total + turno.tratamientos.reduce((sum, t) => sum + t.costo, 0);
     }, 0);
