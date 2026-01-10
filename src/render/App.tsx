@@ -8,6 +8,7 @@ import Principal from "./app/principal";
 import Tratamientos from "./app/features/tratamientos/tratamientos";
 import Whatsapp from "./app/features/whatsapp/whatsapp";
 import Calendario from "./app/features/turno/calendario";
+import Configuracion from "./app/features/configuracion/configuracion";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/calendario" element={<Calendario />} />
         <Route path="/tratamientos" element={<Tratamientos />} />
         <Route path="/whatsapp" element={<Whatsapp />} />
+        <Route path="/configuracion" element={<Configuracion />} />
         {/* Redirect old routes */}
         <Route path="/turnos" element={<Navigate to="/turno" />} />
         <Route path="/agendar-turno" element={<Navigate to="/turno/nuevo" />} />

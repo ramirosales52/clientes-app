@@ -7,6 +7,11 @@ import { HistorialEstadoTurno } from "../turnos/entities/historial-estado.entity
 import { Recordatorio } from "../whatsapp/entities/recordatorio.entity";
 import { PlantillaMensaje } from "../whatsapp/entities/plantilla-mensaje.entity";
 import { ConfiguracionRecordatorio } from "../whatsapp/entities/configuracion-recordatorio.entity";
+import { ConfiguracionSalon } from "../configuracion/entities/configuracion-salon.entity";
+import { HorarioSemanal } from "../configuracion/entities/horario-semanal.entity";
+import { Temporada } from "../configuracion/entities/temporada.entity";
+import { HorarioTemporada } from "../configuracion/entities/horario-temporada.entity";
+import { DiaEspecial } from "../configuracion/entities/dia-especial.entity";
 
 export const entities = [
   Cliente,
@@ -17,5 +22,10 @@ export const entities = [
   HistorialEstadoTurno,
   Recordatorio,
   PlantillaMensaje,
-  ConfiguracionRecordatorio
+  ConfiguracionRecordatorio,
+  ConfiguracionSalon,
+  HorarioSemanal,
+  Temporada,
+  HorarioTemporada,
+  DiaEspecial,
 ];

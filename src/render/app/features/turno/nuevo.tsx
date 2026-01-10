@@ -38,8 +38,8 @@ import {
   ClipboardList,
   Phone,
   User,
-  DollarSign,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { es } from "react-day-picker/locale";
@@ -73,6 +73,18 @@ interface Slot {
   disponible: boolean;
 }
 
+interface FranjaHoraria {
+  inicio: string;
+  fin: string;
+}
+
+interface HorariosDia {
+  abierto: boolean;
+  franjas: FranjaHoraria[];
+  origen: "dia_especial" | "temporada" | "horario_semanal" | "cerrado";
+  nombre?: string;
+}
+
 const turnoSchema = z.object({
   clienteId: z.string().min(1, "Selecciona un cliente"),
   tratamientos: z.array(z.string()).min(1, "Selecciona al menos un tratamiento"),
@@ -82,47 +94,60 @@ const turnoSchema = z.object({
 
 type TurnoFormData = z.infer<typeof turnoSchema>;
 
-const HORARIOS_TRABAJO = [
-  { inicio: 8, fin: 12 },
-  { inicio: 15, fin: 19 },
-];
+function generarSlots(
+  duracionMinutos: number,
+  horasOcupadas: string[],
+  horariosDia: HorariosDia | null
+): Slot[] {
+  if (!horariosDia || !horariosDia.abierto || horariosDia.franjas.length === 0) {
+    return [];
+  }
 
-function generarSlots(duracionMinutos: number, horasOcupadas: string[]): Slot[] {
   const slots: Slot[] = [];
   const bloques = duracionMinutos / 30;
 
-  for (const horario of HORARIOS_TRABAJO) {
-    for (let hora = horario.inicio; hora < horario.fin; hora++) {
-      for (let minuto = 0; minuto < 60; minuto += 30) {
-        const inicio = `${String(hora).padStart(2, "0")}:${String(minuto).padStart(2, "0")}`;
-        const inicioMinutos = hora * 60 + minuto;
-        const finMinutos = inicioMinutos + duracionMinutos;
-        const finHora = Math.floor(finMinutos / 60);
-        const finMinuto = finMinutos % 60;
-        const fin = `${String(finHora).padStart(2, "0")}:${String(finMinuto).padStart(2, "0")}`;
+  // Convertir franjas a formato de horario de trabajo
+  const horariosConvertidos = horariosDia.franjas.map((franja) => {
+    const [inicioHora, inicioMin] = franja.inicio.split(":").map(Number);
+    const [finHora, finMin] = franja.fin.split(":").map(Number);
+    return {
+      inicio: inicioHora + inicioMin / 60,
+      fin: finHora + finMin / 60,
+      inicioMinutos: inicioHora * 60 + inicioMin,
+      finMinutos: finHora * 60 + finMin,
+    };
+  });
 
-        const cabeEnHorario = HORARIOS_TRABAJO.some((h) => {
-          const inicioHorario = h.inicio * 60;
-          const finHorario = h.fin * 60;
-          return inicioMinutos >= inicioHorario && finMinutos <= finHorario;
-        });
+  for (const horario of horariosConvertidos) {
+    for (let minutoActual = horario.inicioMinutos; minutoActual < horario.finMinutos; minutoActual += 30) {
+      const hora = Math.floor(minutoActual / 60);
+      const minuto = minutoActual % 60;
+      const inicio = `${String(hora).padStart(2, "0")}:${String(minuto).padStart(2, "0")}`;
+      const finMinutos = minutoActual + duracionMinutos;
+      const finHora = Math.floor(finMinutos / 60);
+      const finMinuto = finMinutos % 60;
+      const fin = `${String(finHora).padStart(2, "0")}:${String(finMinuto).padStart(2, "0")}`;
 
-        if (!cabeEnHorario) continue;
+      // Verificar que el slot cabe dentro de alguna franja
+      const cabeEnHorario = horariosConvertidos.some((h) => {
+        return minutoActual >= h.inicioMinutos && finMinutos <= h.finMinutos;
+      });
 
-        let disponible = true;
-        for (let i = 0; i < bloques; i++) {
-          const checkMinutos = inicioMinutos + i * 30;
-          const checkHora = Math.floor(checkMinutos / 60);
-          const checkMinuto = checkMinutos % 60;
-          const checkStr = `${String(checkHora).padStart(2, "0")}:${String(checkMinuto).padStart(2, "0")}`;
-          if (horasOcupadas.includes(checkStr)) {
-            disponible = false;
-            break;
-          }
+      if (!cabeEnHorario) continue;
+
+      let disponible = true;
+      for (let i = 0; i < bloques; i++) {
+        const checkMinutos = minutoActual + i * 30;
+        const checkHora = Math.floor(checkMinutos / 60);
+        const checkMinuto = checkMinutos % 60;
+        const checkStr = `${String(checkHora).padStart(2, "0")}:${String(checkMinuto).padStart(2, "0")}`;
+        if (horasOcupadas.includes(checkStr)) {
+          disponible = false;
+          break;
         }
-
-        slots.push({ inicio, fin, disponible });
       }
+
+      slots.push({ inicio, fin, disponible });
     }
   }
 
@@ -156,6 +181,7 @@ function NuevoTurno() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
   const [openClientes, setOpenClientes] = useState(false);
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([]);
+  const [horariosDia, setHorariosDia] = useState<HorariosDia | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [turnoAgendado, setTurnoAgendado] = useState(false);
 
@@ -182,7 +208,7 @@ function NuevoTurno() {
     .filter((t) => tratamientosSeleccionados.includes(t.id))
     .reduce((sum, t) => sum + t.costo, 0);
 
-  const slots = duracionTotal > 0 ? generarSlots(duracionTotal, horasOcupadas) : [];
+  const slots = duracionTotal > 0 ? generarSlots(duracionTotal, horasOcupadas, horariosDia) : [];
 
   const clienteSeleccionado = clientes.find((c) => c.id === clienteId);
   const tratamientosDetalle = tratamientos.filter((t) =>
@@ -236,6 +262,26 @@ function NuevoTurno() {
     }
   }, []);
 
+  const fetchHorariosDia = useCallback(async (fechaSeleccionada: Date) => {
+    try {
+      const res = await axios.get("http://localhost:3000/configuracion/horarios-para-fecha", {
+        params: { fecha: dayjs(fechaSeleccionada).format("YYYY-MM-DD") },
+      });
+      setHorariosDia(res.data);
+    } catch (error) {
+      console.error("Error al obtener horarios del día:", error);
+      // Fallback a horario por defecto si falla
+      setHorariosDia({
+        abierto: true,
+        franjas: [
+          { inicio: "08:00", fin: "12:00" },
+          { inicio: "15:00", fin: "19:00" },
+        ],
+        origen: "horario_semanal",
+      });
+    }
+  }, []);
+
   useEffect(() => {
     fetchClientes();
     fetchTratamientos();
@@ -255,9 +301,10 @@ function NuevoTurno() {
   useEffect(() => {
     if (fecha) {
       fetchHorasOcupadas(fecha);
+      fetchHorariosDia(fecha);
       form.setValue("slotInicio", "");
     }
-  }, [fecha, fetchHorasOcupadas, form]);
+  }, [fecha, fetchHorasOcupadas, fetchHorariosDia, form]);
 
   useEffect(() => {
     form.setValue("slotInicio", "");
@@ -318,6 +365,7 @@ function NuevoTurno() {
   const handleAgendarOtro = () => {
     form.reset();
     setHorasOcupadas([]);
+    setHorariosDia(null);
     setTurnoAgendado(false);
   };
 
@@ -532,6 +580,14 @@ function NuevoTurno() {
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm gap-2">
                       <CalendarDays className="h-8 w-8 opacity-30" />
                       <p>Selecciona una fecha</p>
+                    </div>
+                  ) : horariosDia && !horariosDia.abierto ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm gap-2">
+                      <XCircle className="h-8 w-8 opacity-30" />
+                      <p>Día cerrado</p>
+                      {horariosDia.nombre && (
+                        <p className="text-xs">{horariosDia.nombre}</p>
+                      )}
                     </div>
                   ) : duracionTotal === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm gap-2">

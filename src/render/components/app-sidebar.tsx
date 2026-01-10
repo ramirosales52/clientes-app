@@ -1,4 +1,4 @@
-import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users, CalendarPlus } from "lucide-react";
+import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users, CalendarPlus, Settings } from "lucide-react";
 import Logo from "../assets/logo2.png";
 
 import {
@@ -48,6 +48,11 @@ const items = [
     title: "Whatsapp Bot",
     url: "/whatsapp",
     icon: BotMessageSquare
+  },
+  {
+    title: "Configuración",
+    url: "/configuracion",
+    icon: Settings
   }
 ];
 
