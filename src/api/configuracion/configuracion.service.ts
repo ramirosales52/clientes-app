@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import { Repository } from "typeorm";
 import { ConfiguracionSalon } from "./entities/configuracion-salon.entity";
 import { HorarioSemanal, Franja } from "./entities/horario-semanal.entity";
 import { Temporada } from "./entities/temporada.entity";
@@ -18,6 +18,19 @@ export interface HorariosParaFecha {
   motivo?: string;
   franjas: Franja[];
   temporadaNombre?: string;
+}
+
+/**
+ * Parsea una fecha string (YYYY-MM-DD) a Date sin problemas de timezone.
+ * Agrega T12:00:00 para evitar que se interprete como UTC medianoche.
+ */
+function parseDateString(dateStr: string): Date {
+  // Si ya tiene T, usarla directamente
+  if (dateStr.includes("T")) {
+    return new Date(dateStr);
+  }
+  // Agregar mediodía para evitar problemas de timezone
+  return new Date(dateStr + "T12:00:00");
 }
 
 @Injectable()
@@ -130,8 +143,8 @@ export class ConfiguracionService {
   async createTemporada(dto: CreateTemporadaDto): Promise<Temporada> {
     const temporada = this.temporadaRepo.create({
       nombre: dto.nombre,
-      fechaInicio: new Date(dto.fechaInicio),
-      fechaFin: new Date(dto.fechaFin),
+      fechaInicio: parseDateString(dto.fechaInicio),
+      fechaFin: parseDateString(dto.fechaFin),
       activa: dto.activa ?? true,
     });
 
@@ -157,8 +170,8 @@ export class ConfiguracionService {
     const temporada = await this.getTemporada(id);
 
     if (dto.nombre !== undefined) temporada.nombre = dto.nombre;
-    if (dto.fechaInicio !== undefined) temporada.fechaInicio = new Date(dto.fechaInicio);
-    if (dto.fechaFin !== undefined) temporada.fechaFin = new Date(dto.fechaFin);
+    if (dto.fechaInicio !== undefined) temporada.fechaInicio = parseDateString(dto.fechaInicio);
+    if (dto.fechaFin !== undefined) temporada.fechaFin = parseDateString(dto.fechaFin);
     if (dto.activa !== undefined) temporada.activa = dto.activa;
 
     await this.temporadaRepo.save(temporada);
@@ -208,7 +221,7 @@ export class ConfiguracionService {
 
   async createDiaEspecial(dto: CreateDiaEspecialDto): Promise<DiaEspecial> {
     const dia = this.diaEspecialRepo.create({
-      fecha: new Date(dto.fecha),
+      fecha: parseDateString(dto.fecha),
       cerrado: dto.cerrado,
       motivo: dto.motivo,
       franjas: dto.franjas,
@@ -219,7 +232,7 @@ export class ConfiguracionService {
   async updateDiaEspecial(id: string, dto: UpdateDiaEspecialDto): Promise<DiaEspecial> {
     const dia = await this.getDiaEspecial(id);
 
-    if (dto.fecha !== undefined) dia.fecha = new Date(dto.fecha);
+    if (dto.fecha !== undefined) dia.fecha = parseDateString(dto.fecha);
     if (dto.cerrado !== undefined) dia.cerrado = dto.cerrado;
     if (dto.motivo !== undefined) dia.motivo = dto.motivo;
     if (dto.franjas !== undefined) dia.franjas = dto.franjas;
@@ -241,14 +254,19 @@ export class ConfiguracionService {
    * Prioridad: DiaEspecial > Temporada > HorarioSemanal
    */
   async getHorariosParaFecha(fecha: string): Promise<HorariosParaFecha> {
-    // Agregar T12:00:00 para evitar problemas de timezone
-    // (si solo pasamos YYYY-MM-DD, JS lo interpreta como UTC medianoche)
-    const fechaDate = new Date(fecha + "T12:00:00");
+    const fechaDate = parseDateString(fecha);
     const diaSemana = fechaDate.getDay();
 
     // 1. Verificar si es un día especial
-    const diaEspecial = await this.diaEspecialRepo.findOne({
-      where: { fecha: fechaDate },
+    // Buscar todos y filtrar por fecha (SQLite guarda fechas como string)
+    const diasEspeciales = await this.diaEspecialRepo.find();
+    const diaEspecial = diasEspeciales.find((d) => {
+      const diaFecha = parseDateString(String(d.fecha));
+      return (
+        diaFecha.getFullYear() === fechaDate.getFullYear() &&
+        diaFecha.getMonth() === fechaDate.getMonth() &&
+        diaFecha.getDate() === fechaDate.getDate()
+      );
     });
 
     if (diaEspecial) {
@@ -262,13 +280,19 @@ export class ConfiguracionService {
     }
 
     // 2. Verificar si hay una temporada activa para esta fecha
-    const temporada = await this.temporadaRepo.findOne({
-      where: {
-        activa: true,
-        fechaInicio: LessThanOrEqual(fechaDate),
-        fechaFin: MoreThanOrEqual(fechaDate),
-      },
+    const temporadas = await this.temporadaRepo.find({
+      where: { activa: true },
       relations: ["horarios"],
+    });
+    
+    const temporada = temporadas.find((t) => {
+      const inicio = parseDateString(String(t.fechaInicio));
+      const fin = parseDateString(String(t.fechaFin));
+      // Comparar solo año, mes, día
+      const fechaNum = fechaDate.getFullYear() * 10000 + fechaDate.getMonth() * 100 + fechaDate.getDate();
+      const inicioNum = inicio.getFullYear() * 10000 + inicio.getMonth() * 100 + inicio.getDate();
+      const finNum = fin.getFullYear() * 10000 + fin.getMonth() * 100 + fin.getDate();
+      return fechaNum >= inicioNum && fechaNum <= finNum;
     });
 
     if (temporada) {
@@ -311,5 +335,76 @@ export class ConfiguracionService {
       cerrado: !horarioSemanal.activo,
       franjas: horarioSemanal.activo ? horarioSemanal.franjas : [],
     };
+  }
+
+  /**
+   * Obtiene las fechas cerradas dentro de un rango de fechas.
+   * Usado para deshabilitar días en el calendario al agendar turnos.
+   */
+  async getFechasCerradas(desde: string, hasta: string): Promise<string[]> {
+    const fechasCerradas: string[] = [];
+    const desdeDate = parseDateString(desde);
+    const hastaDate = parseDateString(hasta);
+
+    // Obtener datos necesarios
+    const diasEspeciales = await this.diaEspecialRepo.find();
+    const temporadas = await this.temporadaRepo.find({
+      where: { activa: true },
+      relations: ["horarios"],
+    });
+    const horariosSemanales = await this.getHorariosSemanales();
+
+    // Iterar por cada día en el rango
+    const currentDate = new Date(desdeDate);
+    while (currentDate <= hastaDate) {
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      const day = String(currentDate.getDate()).padStart(2, "0");
+      const fechaStr = `${year}-${month}-${day}`;
+      const diaSemana = currentDate.getDay();
+
+      let cerrado = false;
+
+      // 1. Verificar días especiales
+      const diaEspecial = diasEspeciales.find((d) => {
+        const diaFecha = parseDateString(String(d.fecha));
+        return (
+          diaFecha.getFullYear() === currentDate.getFullYear() &&
+          diaFecha.getMonth() === currentDate.getMonth() &&
+          diaFecha.getDate() === currentDate.getDate()
+        );
+      });
+
+      if (diaEspecial) {
+        cerrado = diaEspecial.cerrado;
+      } else {
+        // 2. Verificar temporadas
+        const temporada = temporadas.find((t) => {
+          const inicio = parseDateString(String(t.fechaInicio));
+          const fin = parseDateString(String(t.fechaFin));
+          const fechaNum = currentDate.getFullYear() * 10000 + currentDate.getMonth() * 100 + currentDate.getDate();
+          const inicioNum = inicio.getFullYear() * 10000 + inicio.getMonth() * 100 + inicio.getDate();
+          const finNum = fin.getFullYear() * 10000 + fin.getMonth() * 100 + fin.getDate();
+          return fechaNum >= inicioNum && fechaNum <= finNum;
+        });
+
+        if (temporada) {
+          const horarioTemp = temporada.horarios.find((h) => h.diaSemana === diaSemana);
+          cerrado = horarioTemp ? !horarioTemp.activo : true;
+        } else {
+          // 3. Verificar horario semanal
+          const horarioSemanal = horariosSemanales.find((h) => h.diaSemana === diaSemana);
+          cerrado = horarioSemanal ? !horarioSemanal.activo : true;
+        }
+      }
+
+      if (cerrado) {
+        fechasCerradas.push(fechaStr);
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return fechasCerradas;
   }
 }

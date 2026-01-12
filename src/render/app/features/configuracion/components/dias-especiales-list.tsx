@@ -58,7 +58,9 @@ function DiasEspecialesList({ diasEspeciales, onRefresh }: DiasEspecialesListPro
 
   const handleOpenEdit = (dia: DiaEspecial) => {
     setEditingId(dia.id);
-    setFecha(dayjs(dia.fecha).format("YYYY-MM-DD"));
+    // Agregar T12:00:00 para evitar problemas de timezone
+    const fechaStr = String(dia.fecha).split("T")[0];
+    setFecha(fechaStr);
     setCerrado(dia.cerrado);
     setMotivo(dia.motivo || "");
     setFranjas(dia.franjas || []);
@@ -224,7 +226,7 @@ function DiasEspecialesList({ diasEspeciales, onRefresh }: DiasEspecialesListPro
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">
-                      {dayjs(dia.fecha).format("dddd D [de] MMMM YYYY")}
+                      {dayjs(String(dia.fecha).split("T")[0] + "T12:00:00").format("dddd D [de] MMMM YYYY")}
                     </span>
                     <Badge variant={dia.cerrado ? "destructive" : "secondary"}>
                       {dia.cerrado ? "Cerrado" : "Horario especial"}

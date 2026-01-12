@@ -182,6 +182,8 @@ function NuevoTurno() {
   const [openClientes, setOpenClientes] = useState(false);
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([]);
   const [horariosDia, setHorariosDia] = useState<HorariosDia | null>(null);
+  const [fechasCerradas, setFechasCerradas] = useState<Date[]>([]);
+  const [mesVisible, setMesVisible] = useState<Date>(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [turnoAgendado, setTurnoAgendado] = useState(false);
 
@@ -292,10 +294,37 @@ function NuevoTurno() {
     }
   }, []);
 
+  const fetchFechasCerradas = useCallback(async (mesBase: Date) => {
+    try {
+      // Cargar fechas cerradas: 1 mes antes y 2 meses después del mes visible
+      const desde = dayjs(mesBase).subtract(1, "month").startOf("month").format("YYYY-MM-DD");
+      const hasta = dayjs(mesBase).add(2, "month").endOf("month").format("YYYY-MM-DD");
+      const res = await axios.get("http://localhost:3000/configuracion/fechas-cerradas", {
+        params: { desde, hasta },
+      });
+      // Convertir strings a Date objects
+      const fechas = (res.data || []).map((f: string) => {
+        const [year, month, day] = f.split("-").map(Number);
+        return new Date(year, month - 1, day);
+      });
+      setFechasCerradas(fechas);
+    } catch (error) {
+      console.error("Error al obtener fechas cerradas:", error);
+    }
+  }, []);
+
+  const handleMonthChange = useCallback((month: Date) => {
+    setMesVisible(month);
+    fetchFechasCerradas(month);
+  }, [fetchFechasCerradas]);
+
+  // Carga inicial
   useEffect(() => {
     fetchClientes();
     fetchTratamientos();
-  }, [fetchClientes, fetchTratamientos]);
+    fetchFechasCerradas(new Date());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for data refresh events
   useEffect(() => {
@@ -550,9 +579,23 @@ function NuevoTurno() {
                           <Calendar
                             locale={es}
                             mode="single"
+                            month={mesVisible}
+                            onMonthChange={handleMonthChange}
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) => dayjs(date).isBefore(dayjs().startOf("day"))}
+                            disabled={(date) => {
+                              // Deshabilitar días pasados
+                              if (dayjs(date).isBefore(dayjs().startOf("day"))) {
+                                return true;
+                              }
+                              // Deshabilitar días cerrados
+                              return fechasCerradas.some(
+                                (fc) =>
+                                  fc.getFullYear() === date.getFullYear() &&
+                                  fc.getMonth() === date.getMonth() &&
+                                  fc.getDate() === date.getDate()
+                              );
+                            }}
                             className="rounded-md border w-72 h-auto"
                           />
                         </FormControl>

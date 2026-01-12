@@ -91,8 +91,9 @@ function TemporadasList({ temporadas, onRefresh }: TemporadasListProps) {
   const handleOpenEdit = (temporada: Temporada) => {
     setEditingId(temporada.id);
     setNombre(temporada.nombre);
-    setFechaInicio(dayjs(temporada.fechaInicio).format("YYYY-MM-DD"));
-    setFechaFin(dayjs(temporada.fechaFin).format("YYYY-MM-DD"));
+    // Extraer solo la parte de fecha para evitar problemas de timezone
+    setFechaInicio(String(temporada.fechaInicio).split("T")[0]);
+    setFechaFin(String(temporada.fechaFin).split("T")[0]);
     setActiva(temporada.activa);
     
     const horariosOrdenados = DIAS_SEMANA.map((dia) => {
@@ -207,7 +208,10 @@ function TemporadasList({ temporadas, onRefresh }: TemporadasListProps) {
   };
 
   const formatDateRange = (inicio: string, fin: string) => {
-    return `${dayjs(inicio).format("D MMM")} - ${dayjs(fin).format("D MMM YYYY")}`;
+    // Agregar T12:00:00 para evitar problemas de timezone
+    const inicioStr = String(inicio).split("T")[0] + "T12:00:00";
+    const finStr = String(fin).split("T")[0] + "T12:00:00";
+    return `${dayjs(inicioStr).format("D MMM")} - ${dayjs(finStr).format("D MMM YYYY")}`;
   };
 
   const horariosResumen = () => {

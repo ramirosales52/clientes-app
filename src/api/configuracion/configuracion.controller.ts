@@ -57,6 +57,14 @@ export class ConfiguracionController {
     return this.configuracionService.getHorariosParaFecha(fecha);
   }
 
+  @Get("fechas-cerradas")
+  getFechasCerradas(
+    @Query("desde") desde: string,
+    @Query("hasta") hasta: string,
+  ): Promise<string[]> {
+    return this.configuracionService.getFechasCerradas(desde, hasta);
+  }
+
   // ==================== TEMPORADAS ====================
 
   @Get("temporadas")
