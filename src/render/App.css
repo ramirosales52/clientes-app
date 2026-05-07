@@ -9,12 +9,19 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 }
 
@@ -112,7 +119,7 @@
 */
 
 @theme inline {
-  --font-sans: Geist, sans-serif;
+  --font-sans: Geist, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   --font-mono: "Fira Code", "Courier New", monospace;
   --font-serif: "Lora", Georgia, serif;
   --radius: 0.5rem;
@@ -214,7 +221,7 @@
   --sidebar-accent-foreground: oklch(0.3394 0.0441 1.7583);
   --sidebar-border: oklch(0.8719 0.0198 302.1690);
   --sidebar-ring: oklch(0.6104 0.0767 299.7335);
-  --font-sans: Geist, sans-serif;
+  --font-sans: Geist, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   --font-serif: "Lora", Georgia, serif;
   --font-mono: "Fira Code", "Courier New", monospace;
   --shadow-color: hsl(0 0% 0%);

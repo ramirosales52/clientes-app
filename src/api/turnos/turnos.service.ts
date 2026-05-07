@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, LessThan, MoreThan, Repository } from 'typeorm';
+import { BrowserWindow } from 'electron';
 import { Turno, EstadoTurno } from './entities/turno.entity';
 import { HistorialEstadoTurno } from './entities/historial-estado.entity';
 import { CreateTurnoDto } from './dto/create-turno.dto';
@@ -10,6 +11,10 @@ import { Tratamiento } from '../tratamientos/entities/tratamiento.entity';
 import { RecordatorioService } from '../whatsapp/recordatorio.service';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import dayjs from 'dayjs';
+import {
+  calcularCostoHistoricoTratamiento,
+  calcularCostoHistoricoTurno,
+} from '../tratamientos/costo-historico';
 
 dayjs.extend(isSameOrBefore);
 
@@ -35,15 +40,95 @@ export class TurnoService {
     private recordatorioService: RecordatorioService,
   ) { }
 
+  private calcularCostoTotalTurno(turno: Pick<Turno, 'tratamientos' | 'fechaInicio'>): number {
+    return calcularCostoHistoricoTurno(turno.tratamientos, turno.fechaInicio);
+  }
+
+  private normalizarTelefono(valor: string): string {
+    return valor.replace(/\D/g, '');
+  }
+
+  private coincideTelefonoWhatsapp(entrada: string, codArea: string, numero: string): boolean {
+    const telefonoEntrada = this.normalizarTelefono(entrada);
+    const telefonoGuardado = this.normalizarTelefono(`549${codArea}${numero}`);
+
+    if (!telefonoEntrada || !telefonoGuardado) return false;
+    if (telefonoEntrada === telefonoGuardado) return true;
+
+    return (
+      telefonoEntrada.replace(/^549/, '54') === telefonoGuardado.replace(/^549/, '54') ||
+      telefonoEntrada.replace(/^54(?!9)/, '549') === telefonoGuardado ||
+      telefonoGuardado.replace(/^54(?!9)/, '549') === telefonoEntrada
+    );
+  }
+
+  private async cargarTratamientosHistoricos(ids: string[]): Promise<Tratamiento[]> {
+    const tratamientos = await Promise.all(
+      ids.map((id) =>
+        this.tratamientoRepository.findOne({
+          where: { id },
+          relations: ['historialPrecios'],
+        }),
+      ),
+    );
+
+    const encontrados = tratamientos.filter((tratamiento): tratamiento is Tratamiento => Boolean(tratamiento));
+
+    if (encontrados.length !== ids.length) {
+      throw new NotFoundException('Uno o más tratamientos no existen');
+    }
+
+    return ids.map((id) => encontrados.find((tratamiento) => tratamiento.id === id)!);
+  }
+
+  private congelarTratamientosTurno(turno: Turno): Turno {
+    if (turno.tratamientosSnapshot?.length) {
+      turno.tratamientos = turno.tratamientosSnapshot.map((tratamiento) => ({
+        id: tratamiento.id,
+        nombre: tratamiento.nombre,
+        costo: tratamiento.costo,
+        duracion: tratamiento.duracion,
+      })) as Tratamiento[];
+
+      return turno;
+    }
+
+    const tratamientosCongelados = turno.tratamientos.map((tratamiento) => {
+      const costoHistorico = calcularCostoHistoricoTratamiento(tratamiento, turno.fechaInicio);
+
+      return {
+        ...tratamiento,
+        costo: costoHistorico,
+        costoHistorico,
+      };
+    });
+
+    turno.tratamientos = tratamientosCongelados;
+    turno.tratamientosSnapshot = tratamientosCongelados.map((tratamiento) => ({
+      id: tratamiento.id,
+      nombre: tratamiento.nombre,
+      costo: tratamiento.costo,
+      duracion: tratamiento.duracion,
+    }));
+
+    turno.costoTotal = this.calcularCostoTotalTurno({
+      tratamientos: tratamientosCongelados,
+      fechaInicio: turno.fechaInicio,
+    });
+
+    return turno;
+  }
+
   async create(createTurnoDto: CreateTurnoDto): Promise<Turno> {
-    const { fechaInicio, fechaFin } = createTurnoDto;
+    const fechaInicio = new Date(createTurnoDto.fechaInicio);
+    const fechaFin = new Date(createTurnoDto.fechaFin);
 
     const overlapping = await this.turnoRepository.findOne({
       where: [
         {
           fechaInicio: LessThan(new Date(fechaFin)),
           fechaFin: MoreThan(new Date(fechaInicio)),
-          estado: In(['pendiente', 'confirmado']),
+          estado: In(['pendiente', 'confirmado', 'sin_confirmar']),
         },
       ],
     });
@@ -58,20 +143,21 @@ export class TurnoService {
 
     if (!cliente) throw new NotFoundException('Cliente no encontrado');
 
-    const tratamientos = await this.tratamientoRepository.findBy({
-      id: In(createTurnoDto.tratamientosIds),
-    });
-
-    if (tratamientos.length !== createTurnoDto.tratamientosIds.length) {
-      throw new NotFoundException('Uno o más tratamientos no existen');
-    }
+    const tratamientos = await this.cargarTratamientosHistoricos(createTurnoDto.tratamientosIds);
 
     const turno = this.turnoRepository.create({
       ...createTurnoDto,
-      fechaInicio: new Date(createTurnoDto.fechaInicio),
-      fechaFin: new Date(createTurnoDto.fechaFin),
+      fechaInicio,
+      fechaFin,
       cliente,
-      tratamientos
+      tratamientos,
+      tratamientosSnapshot: tratamientos.map((tratamiento) => ({
+        id: tratamiento.id,
+        nombre: tratamiento.nombre,
+        costo: calcularCostoHistoricoTratamiento(tratamiento, fechaInicio),
+        duracion: tratamiento.duracion,
+      })),
+      costoTotal: this.calcularCostoTotalTurno({ tratamientos, fechaInicio }),
     });
 
     const saved = await this.turnoRepository.save(turno);
@@ -84,6 +170,7 @@ export class TurnoService {
 
     // Crear recordatorios automáticos de WhatsApp
     await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+    this.notificarTurnosActualizados();
 
     return turnoCompleto;
   }
@@ -99,6 +186,22 @@ export class TurnoService {
       estadoNuevo,
     });
     await this.historialRepository.save(historial);
+  }
+
+  private notificarTurnosActualizados(): void {
+    for (const ventana of BrowserWindow.getAllWindows()) {
+      ventana.webContents.send('turnos:actualizados');
+    }
+  }
+
+  private async asegurarCostoTotal(turno: Turno): Promise<Turno> {
+    if (turno.costoTotal != null) return turno;
+
+    const costoTotal = this.calcularCostoTotalTurno(turno);
+    turno.costoTotal = costoTotal;
+    await this.turnoRepository.save(turno);
+
+    return turno;
   }
 
   private bloquesTrabajo(fecha: string): Interval[] {
@@ -221,23 +324,41 @@ export class TurnoService {
   }
 
   findAll(): Promise<Turno[]> {
-    return this.turnoRepository.find({ relations: ['cliente'] });
+    return this.turnoRepository.find({
+      relations: ['cliente', 'tratamientos', 'tratamientos.historialPrecios', 'pagos', 'historialEstados'],
+    }).then(async (turnos) => Promise.all(turnos.map(async (turno) => this.congelarTratamientosTurno(await this.asegurarCostoTotal(turno)))));
   }
 
   async findOne(id: string): Promise<Turno> {
     const turno = await this.turnoRepository.findOne({
       where: { id },
-      relations: ['cliente', 'tratamientos'],
+      relations: ['cliente', 'tratamientos', 'tratamientos.historialPrecios', 'pagos', 'historialEstados'],
     });
 
     if (!turno) throw new NotFoundException('Turno no encontrado');
-    return turno;
+    return this.congelarTratamientosTurno(await this.asegurarCostoTotal(turno));
+  }
+
+  async findLastPendienteByTelefono(telefono: string): Promise<Turno | null> {
+    const turnos = await this.turnoRepository.find({
+      relations: ['cliente', 'tratamientos', 'tratamientos.historialPrecios', 'pagos', 'historialEstados'],
+      order: { fechaInicio: 'DESC' },
+    });
+
+    const turno = turnos.find((item) => {
+      return (
+        item.estado === EstadoTurno.PENDIENTE &&
+        this.coincideTelefonoWhatsapp(telefono, item.cliente.codArea, item.cliente.numero)
+      );
+    });
+
+    return turno ? this.congelarTratamientosTurno(await this.asegurarCostoTotal(turno)) : null;
   }
 
   async update(id: string, dto: UpdateTurnoDto): Promise<Turno> {
     const turno = await this.turnoRepository.findOne({
       where: { id },
-      relations: ['cliente', 'tratamientos'],
+      relations: ['cliente', 'tratamientos', 'tratamientos.historialPrecios'],
     });
     if (!turno) throw new NotFoundException('Turno no encontrado');
 
@@ -257,6 +378,13 @@ export class TurnoService {
       fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : turno.fechaFin,
     });
 
+    if (dto.tratamientosIds) {
+      const tratamientos = await this.cargarTratamientosHistoricos(dto.tratamientosIds);
+
+      turno.tratamientos = tratamientos;
+      turno.costoTotal = this.calcularCostoTotalTurno(turno);
+    }
+
     await this.turnoRepository.save(turno);
 
     // Registrar cambio de estado si cambió
@@ -273,7 +401,19 @@ export class TurnoService {
         const turnoCompleto = await this.findOne(id);
         await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
       }
+
+      if (dto.estado === EstadoTurno.SIN_CONFIRMAR) {
+        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
+      }
     }
+
+    if (!dto.estado) {
+      const turnoCompleto = await this.findOne(id);
+      await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
+      await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+    }
+
+    this.notificarTurnosActualizados();
 
     return this.findOne(id);
   }
@@ -281,6 +421,7 @@ export class TurnoService {
   async remove(id: string): Promise<void> {
     const result = await this.turnoRepository.delete(id);
     if (!result.affected) throw new NotFoundException('Turno no encontrado');
+
+    this.notificarTurnosActualizados();
   }
 }
-

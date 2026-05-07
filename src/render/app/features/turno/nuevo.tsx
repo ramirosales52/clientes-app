@@ -32,7 +32,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
-  CheckCircle2,
+  ChevronRight,
   ChevronsUpDown,
   Clock,
   ClipboardList,
@@ -44,9 +44,10 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { es } from "react-day-picker/locale";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { TratamientosSelector } from "./components/tratamientos-selector";
 
 dayjs.locale("es");
 
@@ -177,20 +178,22 @@ function formatPhone(codArea: string, numero: string): string {
 
 function NuevoTurno() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const clientePrefijado = searchParams.get("clienteId") || "";
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
   const [openClientes, setOpenClientes] = useState(false);
+  const [openTratamientos, setOpenTratamientos] = useState(false);
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([]);
   const [horariosDia, setHorariosDia] = useState<HorariosDia | null>(null);
   const [fechasCerradas, setFechasCerradas] = useState<Date[]>([]);
   const [mesVisible, setMesVisible] = useState<Date>(new Date());
   const [submitting, setSubmitting] = useState(false);
-  const [turnoAgendado, setTurnoAgendado] = useState(false);
 
   const form = useForm<TurnoFormData>({
     resolver: zodResolver(turnoSchema),
     defaultValues: {
-      clienteId: "",
+      clienteId: clientePrefijado,
       tratamientos: [],
       fecha: undefined,
       slotInicio: "",
@@ -287,7 +290,7 @@ function NuevoTurno() {
         abierto: true,
         franjas: [
           { inicio: "08:00", fin: "12:00" },
-          { inicio: "15:00", fin: "19:00" },
+          { inicio: "15:00", fin: "20:00" },
         ],
         origen: "horario_semanal",
       });
@@ -320,11 +323,24 @@ function NuevoTurno() {
 
   // Carga inicial
   useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     fetchClientes();
     fetchTratamientos();
     fetchFechasCerradas(new Date());
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (clientePrefijado) {
+      form.setValue("clienteId", clientePrefijado);
+    }
+  }, [clientePrefijado, form]);
 
   // Listen for data refresh events
   useEffect(() => {
@@ -376,7 +392,15 @@ function NuevoTurno() {
       setSubmitting(true);
       await axios.post("http://localhost:3000/turnos", payload);
       toast.success("Turno agendado correctamente");
-      setTurnoAgendado(true);
+
+      form.reset({
+        clienteId: "",
+        tratamientos: [],
+        fecha: undefined,
+        slotInicio: "",
+      });
+      setHorasOcupadas([]);
+      setHorariosDia(null);
     } catch (err: any) {
       console.error("Error al crear turno:", err);
       const message = err.response?.data?.message || "Error al agendar turno";
@@ -401,15 +425,8 @@ function NuevoTurno() {
     form.setValue("tratamientos", updated);
   };
 
-  const handleAgendarOtro = () => {
-    form.reset();
-    setHorasOcupadas([]);
-    setHorariosDia(null);
-    setTurnoAgendado(false);
-  };
-
   return (
-    <div className="flex flex-col w-full h-screen p-4 gap-4 overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden overscroll-none p-4">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/turno")}>
@@ -419,10 +436,10 @@ function NuevoTurno() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-hidden">
-          <div className="flex gap-6 h-full">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none">
+          <div className="grid flex-1 min-h-0 w-full grid-cols-[20rem_minmax(0,1fr)_20rem] grid-rows-[minmax(0,1fr)] gap-6 overflow-hidden">
             {/* Columna izquierda - Cliente, Tratamientos, Calendario */}
-            <div className="flex flex-col gap-4 overflow-auto w-96 shrink-0">
+            <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden pr-1">
               {/* Cliente */}
               <Card>
                 <CardHeader className="pb-2">
@@ -500,64 +517,39 @@ function NuevoTurno() {
               </Card>
 
               {/* Tratamientos */}
-              <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <Card>
                 <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      Tratamientos
-                    </CardTitle>
-                    {tratamientosSeleccionados.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {tratamientosSeleccionados.length}
-                      </Badge>
-                    )}
-                  </div>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Tratamientos
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-auto space-y-2">
-                  {tratamientos.map((t) => {
-                    const isSelected = tratamientosSeleccionados.includes(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => toggleTratamiento(t.id)}
-                        className={cn(
-                          "w-full p-3 rounded-md border text-left transition-colors",
-                          isSelected
-                            ? "bg-primary/5 border-primary"
-                            : "bg-background hover:bg-muted border-border"
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={cn(
-                                "h-4 w-4 border rounded flex items-center justify-center shrink-0",
-                                isSelected
-                                  ? "bg-primary border-primary"
-                                  : "border-muted-foreground"
-                              )}
-                            >
-                              {isSelected && (
-                                <Check className="h-3 w-3 text-primary-foreground" />
-                              )}
-                            </div>
-                            <span className={cn("font-medium", isSelected && "text-primary")}>
-                              {t.nombre}
-                            </span>
-                          </div>
-                          <span className="font-medium shrink-0">
-                            {formatCurrency(t.costo)}
-                          </span>
+                <CardContent>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                    onClick={() => setOpenTratamientos(true)}
+                  >
+                    <span className={cn(
+                      tratamientosSeleccionados.length === 0 && "text-muted-foreground"
+                    )}>
+                      {tratamientosSeleccionados.length > 0
+                        ? `${tratamientosSeleccionados.length} ${tratamientosSeleccionados.length === 1 ? "tratamiento" : "tratamientos"}`
+                        : "Seleccionar tratamientos"}
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                  {tratamientosDetalle.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {tratamientosDetalle.map((t) => (
+                        <div key={t.id} className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{t.nombre}</span>
+                          <span>{t.duracion} min</span>
                         </div>
-                        <div className="flex items-center gap-1 mt-1 ml-6 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {t.duracion} min
-                        </div>
-                      </button>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -608,8 +600,8 @@ function NuevoTurno() {
             </div>
 
             {/* Columna central - Horarios */}
-            <div className="flex flex-col overflow-hidden flex-1">
-              <Card className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <Card className="flex flex-1 min-h-0 flex-col overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm flex items-center gap-2">
@@ -628,7 +620,7 @@ function NuevoTurno() {
                     </p>
                   )}
                 </CardHeader>
-                <CardContent className="flex-1 overflow-auto">
+                <CardContent className="flex-1 min-h-0 overflow-auto w-full pr-2">
                   {!fecha ? (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm gap-2">
                       <CalendarDays className="h-8 w-8 opacity-30" />
@@ -657,7 +649,7 @@ function NuevoTurno() {
                       control={form.control}
                       name="slotInicio"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="w-full">
                           <FormControl>
                             <div className="space-y-4">
                               {/* Mañana */}
@@ -666,7 +658,7 @@ function NuevoTurno() {
                                   <p className="text-xs font-medium text-muted-foreground mb-2">
                                     Mañana
                                   </p>
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <div className="grid grid-cols-1 gap-2">
                                     {slots
                                       .filter((s) => parseInt(s.inicio.split(":")[0]) < 12)
                                       .map((slot) => (
@@ -676,12 +668,12 @@ function NuevoTurno() {
                                           disabled={!slot.disponible}
                                           onClick={() => field.onChange(slot.inicio)}
                                           className={cn(
-                                            "p-3 rounded-md border transition-colors text-center font-medium",
+                                            "w-full rounded-md border p-3 text-center font-medium transition-colors",
                                             slot.disponible
                                               ? field.value === slot.inicio
-                                                ? "bg-primary text-primary-foreground border-primary"
-                                                : "bg-background hover:bg-muted border-border"
-                                              : "bg-muted/50 text-muted-foreground cursor-not-allowed line-through opacity-50"
+                                                ? "border-primary bg-primary text-primary-foreground"
+                                                : "border-border bg-background hover:bg-muted"
+                                              : "cursor-not-allowed border-border bg-muted/50 text-muted-foreground line-through opacity-50"
                                           )}
                                         >
                                           {slot.inicio} - {slot.fin}
@@ -697,7 +689,7 @@ function NuevoTurno() {
                                   <p className="text-xs font-medium text-muted-foreground mb-2">
                                     Tarde
                                   </p>
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <div className="grid grid-cols-1 gap-2">
                                     {slots
                                       .filter((s) => parseInt(s.inicio.split(":")[0]) >= 12)
                                       .map((slot) => (
@@ -707,12 +699,12 @@ function NuevoTurno() {
                                           disabled={!slot.disponible}
                                           onClick={() => field.onChange(slot.inicio)}
                                           className={cn(
-                                            "p-3 rounded-md border transition-colors text-center font-medium",
+                                            "w-full rounded-md border p-3 text-center font-medium transition-colors",
                                             slot.disponible
                                               ? field.value === slot.inicio
-                                                ? "bg-primary text-primary-foreground border-primary"
-                                                : "bg-background hover:bg-muted border-border"
-                                              : "bg-muted/50 text-muted-foreground cursor-not-allowed line-through opacity-50"
+                                                ? "border-primary bg-primary text-primary-foreground"
+                                                : "border-border bg-background hover:bg-muted"
+                                              : "cursor-not-allowed border-border bg-muted/50 text-muted-foreground line-through opacity-50"
                                           )}
                                         >
                                           {slot.inicio} - {slot.fin}
@@ -733,33 +725,15 @@ function NuevoTurno() {
             </div>
 
             {/* Columna derecha - Resumen */}
-            <div className="flex flex-col overflow-hidden w-96 shrink-0">
-              <Card className={cn(
-                "flex-1 flex flex-col overflow-hidden",
-                turnoAgendado && "border-green-500 bg-green-50"
-              )}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden pr-1">
+              <Card className="flex h-full flex-col overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    {turnoAgendado ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        Turno agendado
-                      </>
-                    ) : (
-                      <>
-                        <ClipboardList className="h-4 w-4" />
-                        Resumen del turno
-                      </>
-                    )}
+                    <ClipboardList className="h-4 w-4" />
+                    Resumen del turno
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-auto space-y-4">
-                  {turnoAgendado && (
-                    <div className="flex flex-col items-center justify-center py-4 text-center">
-                      <CheckCircle2 className="h-12 w-12 text-green-600 mb-2" />
-                      <p className="font-semibold text-green-700">Turno agendado correctamente</p>
-                    </div>
-                  )}
+                <CardContent className="flex-1 overflow-hidden space-y-4">
 
                   {/* Cliente */}
                   <div>
@@ -841,42 +815,28 @@ function NuevoTurno() {
                     </span>
                   </div>
 
-                  {turnoAgendado ? (
-                    <div className="space-y-2">
-                      <Button
-                        type="button"
-                        className="w-full"
-                        size="lg"
-                        onClick={handleAgendarOtro}
-                      >
-                        Agendar otro turno
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full"
-                        size="lg"
-                        onClick={() => navigate("/turno")}
-                      >
-                        Ver turnos
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      size="lg"
-                      disabled={!canSubmit || submitting}
-                    >
-                      {submitting ? "Agendando..." : "Agendar turno"}
-                    </Button>
-                  )}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    size="lg"
+                    disabled={!canSubmit || submitting}
+                  >
+                    {submitting ? "Agendando..." : "Agendar turno"}
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
         </form>
       </Form>
+
+      <TratamientosSelector
+        open={openTratamientos}
+        onOpenChange={setOpenTratamientos}
+        tratamientos={tratamientos}
+        seleccionados={tratamientosSeleccionados}
+        onToggle={toggleTratamiento}
+      />
     </div>
   );
 }

@@ -41,7 +41,9 @@ function HorariosEditor({ horarios, onSave }: HorariosEditorProps) {
         if (h.diaSemana !== diaSemana) return h;
         // Si se activa y no tiene franjas, agregar una por defecto
         const franjas = activo && h.franjas.length === 0
-          ? [{ horaInicio: "09:00", horaFin: "18:00" }]
+          ? diaSemana === 6
+            ? [{ horaInicio: "08:00", horaFin: "12:00" }]
+            : [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }]
           : h.franjas;
         return { ...h, activo, franjas };
       })
@@ -70,7 +72,7 @@ function HorariosEditor({ horarios, onSave }: HorariosEditorProps) {
         if (h.diaSemana !== diaSemana) return h;
         return {
           ...h,
-          franjas: [...h.franjas, { horaInicio: "09:00", horaFin: "13:00" }],
+          franjas: [...h.franjas, { horaInicio: "08:00", horaFin: "12:00" }],
         };
       })
     );

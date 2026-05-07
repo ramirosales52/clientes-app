@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
 import dayjs from 'dayjs';
 import { Recordatorio, TipoRecordatorio, EstadoRecordatorio } from './entities/recordatorio.entity';
 import { PlantillaMensaje } from './entities/plantilla-mensaje.entity';
@@ -26,12 +26,9 @@ export class RecordatorioService {
     private whatsappService: WhatsappService,
   ) {}
 
-  // ============ CONFIGURACIÓN ============
-
   async getConfiguracion(): Promise<ConfiguracionRecordatorio> {
     let config = await this.configuracionRepository.findOne({ where: {} });
     if (!config) {
-      // Crear configuración por defecto
       config = this.configuracionRepository.create({});
       await this.configuracionRepository.save(config);
     }
@@ -44,10 +41,28 @@ export class RecordatorioService {
     return this.configuracionRepository.save(config);
   }
 
-  // ============ PLANTILLAS ============
-
   async getPlantillas(): Promise<PlantillaMensaje[]> {
+    await this.asegurarPlantillasBase();
     return this.plantillaRepository.find({ order: { tipo: 'ASC', nombre: 'ASC' } });
+  }
+
+  private async asegurarPlantillasBase(): Promise<void> {
+    const plantillasBase: Array<Partial<PlantillaMensaje>> = [
+      { nombre: 'Confirmación', tipo: TipoRecordatorio.CONFIRMACION, contenido: this.getPlantillaDefault(TipoRecordatorio.CONFIRMACION), activa: true },
+      { nombre: 'Reintento 1', tipo: TipoRecordatorio.REINTENTO_1, contenido: this.getPlantillaDefault(TipoRecordatorio.REINTENTO_1), activa: true },
+      { nombre: 'Reintento 2', tipo: TipoRecordatorio.REINTENTO_2, contenido: this.getPlantillaDefault(TipoRecordatorio.REINTENTO_2), activa: true },
+      { nombre: 'Recordatorio final', tipo: TipoRecordatorio.PREVIO, contenido: this.getPlantillaDefault(TipoRecordatorio.PREVIO), activa: true },
+    ];
+
+    for (const plantillaBase of plantillasBase) {
+      const existente = await this.plantillaRepository.findOne({
+        where: { tipo: plantillaBase.tipo as TipoRecordatorio },
+      });
+
+      if (!existente) {
+        await this.plantillaRepository.save(this.plantillaRepository.create(plantillaBase));
+      }
+    }
   }
 
   async getPlantilla(id: string): Promise<PlantillaMensaje> {
@@ -72,32 +87,23 @@ export class RecordatorioService {
     if (!result.affected) throw new NotFoundException('Plantilla no encontrada');
   }
 
-  // ============ RECORDATORIOS ============
-
   async getRecordatorios(filtros?: {
     estado?: EstadoRecordatorio;
     tipo?: TipoRecordatorio;
     desde?: Date;
     hasta?: Date;
   }): Promise<Recordatorio[]> {
-    const query = this.recordatorioRepository.createQueryBuilder('r')
+    const query = this.recordatorioRepository
+      .createQueryBuilder('r')
       .leftJoinAndSelect('r.turno', 'turno')
       .leftJoinAndSelect('r.cliente', 'cliente')
       .leftJoinAndSelect('turno.tratamientos', 'tratamientos')
       .orderBy('r.fechaProgramada', 'DESC');
 
-    if (filtros?.estado) {
-      query.andWhere('r.estado = :estado', { estado: filtros.estado });
-    }
-    if (filtros?.tipo) {
-      query.andWhere('r.tipo = :tipo', { tipo: filtros.tipo });
-    }
-    if (filtros?.desde) {
-      query.andWhere('r.fechaProgramada >= :desde', { desde: filtros.desde });
-    }
-    if (filtros?.hasta) {
-      query.andWhere('r.fechaProgramada <= :hasta', { hasta: filtros.hasta });
-    }
+    if (filtros?.estado) query.andWhere('r.estado = :estado', { estado: filtros.estado });
+    if (filtros?.tipo) query.andWhere('r.tipo = :tipo', { tipo: filtros.tipo });
+    if (filtros?.desde) query.andWhere('r.fechaProgramada >= :desde', { desde: filtros.desde });
+    if (filtros?.hasta) query.andWhere('r.fechaProgramada <= :hasta', { hasta: filtros.hasta });
 
     return query.getMany();
   }
@@ -119,22 +125,15 @@ export class RecordatorioService {
 
   async actualizarMensaje(id: string, mensaje: string): Promise<Recordatorio> {
     const recordatorio = await this.getRecordatorio(id);
-    
-    // Re-renderizar el mensaje reemplazando variables con valores reales
-    const mensajeRenderizado = this.renderizarMensajeConDatos(mensaje, recordatorio);
-    recordatorio.mensaje = mensajeRenderizado;
-    
+    recordatorio.mensaje = this.renderizarMensajeConDatos(mensaje, recordatorio);
     return this.recordatorioRepository.save(recordatorio);
   }
 
-  /**
-   * Renderiza un mensaje reemplazando las variables con los datos del recordatorio
-   */
   private renderizarMensajeConDatos(plantilla: string, recordatorio: Recordatorio): string {
     if (!recordatorio.turno || !recordatorio.cliente) return plantilla;
 
     const fechaTurno = dayjs(recordatorio.turno.fechaInicio);
-    const tratamientos = recordatorio.turno.tratamientos?.map(t => t.nombre).join(', ') || '';
+    const tratamientos = recordatorio.turno.tratamientos?.map((t) => t.nombre).join(', ') || '';
 
     return plantilla
       .replace(/{nombre}/g, recordatorio.cliente.nombre)
@@ -147,66 +146,75 @@ export class RecordatorioService {
   async cancelarRecordatoriosPorTurno(turnoId: string): Promise<void> {
     await this.recordatorioRepository.update(
       { turnoId, estado: EstadoRecordatorio.PROGRAMADO },
-      { estado: EstadoRecordatorio.CANCELADO }
+      { estado: EstadoRecordatorio.CANCELADO },
     );
   }
 
-  // ============ CREACIÓN AUTOMÁTICA ============
-
-  /**
-   * Al crear un turno, solo se crea el recordatorio de CONFIRMACIÓN.
-   * El recordatorio PREVIO se crea cuando el cliente confirma.
-   */
   async crearRecordatoriosParaTurno(turno: Turno): Promise<Recordatorio[]> {
     const config = await this.getConfiguracion();
     const recordatorios: Recordatorio[] = [];
-
     const cliente = turno.cliente;
     const telefono = `549${cliente.codArea}${cliente.numero}`;
+    const crear = async (tipo: TipoRecordatorio, fechaProgramada: dayjs.Dayjs) => {
+      if (!fechaProgramada.isAfter(dayjs())) return;
 
-    // Solo crear recordatorio de confirmación (24h antes por defecto)
+      const mensaje = await this.renderizarMensaje(tipo, turno);
+      const recordatorio = this.recordatorioRepository.create({
+        turno,
+        turnoId: turno.id,
+        cliente,
+        clienteId: cliente.id,
+        tipo,
+        estado: EstadoRecordatorio.PROGRAMADO,
+        fechaProgramada: fechaProgramada.toDate(),
+        mensaje,
+        telefono,
+      });
+
+      recordatorios.push(await this.recordatorioRepository.save(recordatorio));
+    };
+
     if (config.recordatorioConfirmacionActivo) {
-      const fechaProgramada = dayjs(turno.fechaInicio)
-        .subtract(config.horasAntesPrevio, 'hour')
-        .toDate();
+      await crear(
+        TipoRecordatorio.CONFIRMACION,
+        dayjs(turno.fechaInicio).subtract(config.horasAntesConfirmacion, 'hour'),
+      );
+    }
 
-      if (dayjs(fechaProgramada).isAfter(dayjs())) {
-        const mensaje = await this.renderizarMensaje(TipoRecordatorio.CONFIRMACION, turno);
-        const recordatorio = this.recordatorioRepository.create({
-          turno,
-          turnoId: turno.id,
-          cliente,
-          clienteId: cliente.id,
-          tipo: TipoRecordatorio.CONFIRMACION,
-          estado: EstadoRecordatorio.PROGRAMADO,
-          fechaProgramada,
-          mensaje,
-          telefono,
-        });
-        recordatorios.push(await this.recordatorioRepository.save(recordatorio));
-      }
+    if (config.recordatorioPrevioActivo) {
+      await crear(
+        TipoRecordatorio.PREVIO,
+        dayjs(turno.fechaInicio).subtract(config.horasAntesPrevio, 'hour'),
+      );
+    }
+
+    const fechaBaseReintentos = dayjs(turno.fechaInicio).subtract(config.horasAntesConfirmacion, 'hour');
+
+    if (config.reintento1Activo) {
+      await crear(
+        TipoRecordatorio.REINTENTO_1,
+        fechaBaseReintentos.add(config.minutosDespuesReintento1, 'minute'),
+      );
+    }
+
+    if (config.reintento2Activo) {
+      await crear(
+        TipoRecordatorio.REINTENTO_2,
+        fechaBaseReintentos.add(config.minutosDespuesReintento2, 'minute'),
+      );
     }
 
     return recordatorios;
   }
 
-  /**
-   * Crea el recordatorio previo (1h antes) cuando el cliente confirma el turno.
-   */
   async crearRecordatorioPrevio(turno: Turno): Promise<Recordatorio | null> {
     const config = await this.getConfiguracion();
-
-    if (!config.recordatorioPrevioActivo) return null;
+    if (!config.recordatorioConfirmacionActivo) return null;
 
     const cliente = turno.cliente;
     const telefono = `549${cliente.codArea}${cliente.numero}`;
-
-    const fechaProgramada = dayjs(turno.fechaInicio)
-      .subtract(config.horasAntesConfirmacion, 'hour')
-      .toDate();
-
-    // Solo crear si la fecha es futura
-    if (!dayjs(fechaProgramada).isAfter(dayjs())) return null;
+    const fechaProgramada = dayjs(turno.fechaInicio).subtract(config.horasAntesConfirmacion, 'hour');
+    if (!fechaProgramada.isAfter(dayjs())) return null;
 
     const mensaje = await this.renderizarMensaje(TipoRecordatorio.PREVIO, turno);
     const recordatorio = this.recordatorioRepository.create({
@@ -216,15 +224,13 @@ export class RecordatorioService {
       clienteId: cliente.id,
       tipo: TipoRecordatorio.PREVIO,
       estado: EstadoRecordatorio.PROGRAMADO,
-      fechaProgramada,
+      fechaProgramada: fechaProgramada.toDate(),
       mensaje,
       telefono,
     });
 
     return this.recordatorioRepository.save(recordatorio);
   }
-
-  // ============ ENVÍO ============
 
   async enviarRecordatorio(id: string): Promise<Recordatorio> {
     const recordatorio = await this.getRecordatorio(id);
@@ -240,7 +246,6 @@ export class RecordatorioService {
 
     const cliente = turno.cliente;
     const telefono = `549${cliente.codArea}${cliente.numero}`;
-
     const recordatorio = this.recordatorioRepository.create({
       turno,
       turnoId: turno.id,
@@ -263,13 +268,9 @@ export class RecordatorioService {
     try {
       recordatorio.intentos += 1;
 
-      // Verificar estado de WhatsApp
       const status = this.whatsappService.getStatus();
-      if (!status.ready) {
-        throw new Error('WhatsApp no está conectado');
-      }
+      if (!status.connected) throw new Error('WhatsApp no está conectado');
 
-      // Enviar mensaje
       await this.whatsappService.sendMessage(recordatorio.telefono, recordatorio.mensaje);
 
       recordatorio.estado = EstadoRecordatorio.ENVIADO;
@@ -286,17 +287,44 @@ export class RecordatorioService {
     return this.recordatorioRepository.save(recordatorio);
   }
 
+  private async marcarSinRespuestaVencidos(): Promise<void> {
+    const config = await this.getConfiguracion();
+    if (!config.autoCancelarSinRespuesta) return;
+
+    const limite = dayjs().subtract(config.minutosEsperaSinRespuesta, 'minute');
+    const candidatos = await this.recordatorioRepository.find({
+      where: {
+        tipo: TipoRecordatorio.REINTENTO_2,
+        estado: EstadoRecordatorio.ENVIADO,
+      },
+      relations: ['turno'],
+    });
+
+    for (const recordatorio of candidatos) {
+      if (!recordatorio.fechaEnvio || !dayjs(recordatorio.fechaEnvio).isBefore(limite)) continue;
+
+      const turno = await this.turnoRepository.findOne({
+        where: { id: recordatorio.turnoId },
+        relations: ['cliente', 'tratamientos'],
+      });
+
+      if (!turno || turno.estado !== EstadoTurno.PENDIENTE) continue;
+
+      turno.estado = EstadoTurno.SIN_CONFIRMAR;
+      await this.turnoRepository.save(turno);
+      await this.cancelarRecordatoriosPorTurno(turno.id);
+    }
+  }
+
   async procesarRecordatoriosPendientes(): Promise<{ enviados: number; fallidos: number }> {
     const config = await this.getConfiguracion();
     const ahora = dayjs();
 
-    // Verificar horario permitido
     const horaActual = ahora.hour();
     if (horaActual < config.horaEnvioMinima || horaActual >= config.horaEnvioMaxima) {
       return { enviados: 0, fallidos: 0 };
     }
 
-    // Buscar recordatorios pendientes cuya fecha ya pasó
     const pendientes = await this.recordatorioRepository.find({
       where: {
         estado: EstadoRecordatorio.PROGRAMADO,
@@ -309,11 +337,9 @@ export class RecordatorioService {
     let fallidos = 0;
 
     for (const recordatorio of pendientes) {
-      // Para recordatorios de confirmación, verificar que el turno esté confirmado
-      if (recordatorio.tipo === TipoRecordatorio.CONFIRMACION) {
+      if (recordatorio.tipo === TipoRecordatorio.PREVIO) {
         const turno = await this.turnoRepository.findOne({ where: { id: recordatorio.turnoId } });
         if (turno?.estado !== EstadoTurno.CONFIRMADO) {
-          // Cancelar si no está confirmado
           recordatorio.estado = EstadoRecordatorio.CANCELADO;
           await this.recordatorioRepository.save(recordatorio);
           continue;
@@ -321,17 +347,14 @@ export class RecordatorioService {
       }
 
       const resultado = await this.procesarEnvio(recordatorio);
-      if (resultado.estado === EstadoRecordatorio.ENVIADO) {
-        enviados++;
-      } else if (resultado.estado === EstadoRecordatorio.FALLIDO) {
-        fallidos++;
-      }
+      if (resultado.estado === EstadoRecordatorio.ENVIADO) enviados += 1;
+      if (resultado.estado === EstadoRecordatorio.FALLIDO) fallidos += 1;
     }
+
+    await this.marcarSinRespuestaVencidos();
 
     return { enviados, fallidos };
   }
-
-  // ============ ESTADÍSTICAS ============
 
   async getEstadisticas(): Promise<{
     hoy: { enviados: number; pendientes: number; fallidos: number };
@@ -347,12 +370,12 @@ export class RecordatorioService {
       .select('r.estado', 'estado')
       .addSelect('COUNT(*)', 'count')
       .addSelect(
-        `CASE 
+        `CASE
           WHEN r.fechaProgramada >= :hoyInicio AND r.fechaProgramada <= :hoyFin THEN 'hoy'
           WHEN r.fechaProgramada >= :semanaInicio THEN 'semana'
           ELSE 'anterior'
         END`,
-        'periodo'
+        'periodo',
       )
       .setParameters({ hoyInicio, hoyFin, semanaInicio })
       .groupBy('r.estado')
@@ -388,19 +411,11 @@ export class RecordatorioService {
     return resultado;
   }
 
-  // ============ RENDERIZADO DE MENSAJES ============
-
   private async renderizarMensaje(tipo: TipoRecordatorio, turno: Turno): Promise<string> {
-    // Buscar plantilla activa para el tipo
-    const plantilla = await this.plantillaRepository.findOne({
-      where: { tipo, activa: true },
-    });
-
+    const plantilla = await this.plantillaRepository.findOne({ where: { tipo, activa: true } });
     let contenido = plantilla?.contenido || this.getPlantillaDefault(tipo);
-
-    // Reemplazar variables
     const fechaTurno = dayjs(turno.fechaInicio);
-    const tratamientos = turno.tratamientos?.map(t => t.nombre).join(', ') || '';
+    const tratamientos = turno.tratamientos?.map((t) => t.nombre).join(', ') || '';
 
     contenido = contenido
       .replace(/{nombre}/g, turno.cliente.nombre)
@@ -415,13 +430,13 @@ export class RecordatorioService {
   private getPlantillaDefault(tipo: TipoRecordatorio): string {
     switch (tipo) {
       case TipoRecordatorio.CONFIRMACION:
-        return `Hola {nombre}! Tenés un turno agendado para el {fecha} a las {hora}.
-
-Tratamientos: {tratamientos}
-
-Respondé *Confirmar* para confirmar tu asistencia o *Cancelar* si no podés asistir.`;
+        return `Hola {nombre} {apellido} 👋\n\nTe recordamos que tenés un turno el día {fecha} a las {hora} para:\n👉 {tratamientos}\n\n⏰ Tenés tiempo hasta 2 horas antes para confirmar o cancelar.\n\nRespondé con:\n✅ CONFIRMAR\n❌ CANCELAR`;
+      case TipoRecordatorio.REINTENTO_1:
+        return `Hola {nombre} 👋\n\nTodavía no recibimos tu confirmación para el turno del {fecha} a las {hora}.\n\n👉 {tratamientos}\n\nPor favor respondé:\n✅ CONFIRMAR\n❌ CANCELAR`;
+      case TipoRecordatorio.REINTENTO_2:
+        return `Hola {nombre} 👋\n\nEste es el último recordatorio para tu turno del {fecha} a las {hora}.\n\nSi no confirmás, el turno puede ser cancelado automáticamente.\n\n👉 {tratamientos}\n\nRespondé:\n✅ CONFIRMAR\n❌ CANCELAR`;
       case TipoRecordatorio.PREVIO:
-        return 'Hola {nombre}! Te recordamos que tu turno es hoy a las {hora}. Tratamientos: {tratamientos}. Te esperamos!';
+        return `Hola {nombre} 👋\n\nTe recordamos que tu turno para {tratamientos} es en 1 hora ⏰\n\n¡Te esperamos! 😊`;
       case TipoRecordatorio.MANUAL:
         return '';
       default:

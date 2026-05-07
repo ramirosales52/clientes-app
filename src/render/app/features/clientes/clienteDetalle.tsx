@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   Calendar,
   CalendarClock,
-  CalendarCheck,
   CalendarX,
   Clock,
   Phone,
@@ -36,8 +35,12 @@ import {
   type ClienteStats,
   type Turno,
 } from "@render/hooks/use-clientes";
+import { useTurnos, type Turno as TurnoDetalle } from "@render/hooks/use-turnos";
 import { ClientesModal } from "./components/clientes-modal";
 import { DeleteClienteDialog } from "./components/delete-cliente-dialog";
+import { TurnoDetailSheet } from "../turno/components/turno-detail-sheet";
+import axios from "axios";
+import { toast } from "sonner";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -104,7 +107,19 @@ function formatDuration(minutes: number): string {
 }
 
 function calcularCostoTurno(turno: Turno): number {
-  return turno.tratamientos.reduce((sum, t) => sum + t.costo, 0);
+  return turno.costoTotal ?? 0;
+}
+
+function getMetodoPagoLabel(metodo: string): string {
+  const labels: Record<string, string> = {
+    efectivo: "Efectivo",
+    transferencia: "Transferencia",
+    tarjeta_debito: "Débito",
+    tarjeta_credito: "Crédito",
+    mercadopago: "MercadoPago",
+  };
+
+  return labels[metodo] || metodo;
 }
 
 function capitalizar(str: string): string {
@@ -116,12 +131,22 @@ function ClienteDetalle() {
   const navigate = useNavigate();
   const { fetchCliente, calcularStats, updateCliente, deleteCliente } =
     useClientes();
+  const {
+    confirmarTurno,
+    cancelarTurno,
+    marcarCompletado,
+    marcarAusente,
+    deleteTurno,
+  } = useTurnos();
 
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [stats, setStats] = useState<ClienteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [turnoDetailOpen, setTurnoDetailOpen] = useState(false);
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<TurnoDetalle | null>(null);
+  const [loadingTurno, setLoadingTurno] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -150,21 +175,57 @@ function ClienteDetalle() {
     navigate("/clientes");
   };
 
+  const handleVerDetalleTurno = useCallback(async (turnoId: string) => {
+    try {
+      setLoadingTurno(true);
+      const response = await axios.get<TurnoDetalle>(`http://localhost:3000/turnos/${turnoId}`);
+      setTurnoSeleccionado(response.data);
+      setTurnoDetailOpen(true);
+    } catch (err) {
+      console.error("Error al cargar turno:", err);
+      toast.error("Error al cargar el turno");
+    } finally {
+      setLoadingTurno(false);
+    }
+  }, []);
+
+  const handleCloseTurnoDetail = useCallback((open: boolean) => {
+    setTurnoDetailOpen(open);
+    if (!open) {
+      setTurnoSeleccionado(null);
+    }
+  }, []);
+
+  const handleTurnoAction = useCallback(
+    async (action: () => Promise<unknown>) => {
+      if (!turnoSeleccionado) return;
+      await action();
+      const updatedCliente = await fetchCliente(id!);
+      if (updatedCliente) {
+        setCliente(updatedCliente);
+        setStats(calcularStats(updatedCliente));
+      }
+      setTurnoDetailOpen(false);
+      setTurnoSeleccionado(null);
+    },
+    [calcularStats, fetchCliente, id, turnoSeleccionado]
+  );
+
   const turnosOrdenados = cliente?.turnos
     ? [...cliente.turnos].sort(
-        (a, b) =>
-          new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime()
-      )
+      (a, b) =>
+        new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime()
+    )
     : [];
 
   if (loading) {
     return (
-      <div className="flex flex-col h-screen w-full p-4 space-y-4">
+      <div className="flex flex-col h-full w-full gap-2 p-2 md:p-3">
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 w-9" />
           <Skeleton className="h-8 w-48" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4 flex-1">
           <Skeleton className="h-full" />
           <Skeleton className="h-full lg:col-span-2" />
         </div>
@@ -174,7 +235,7 @@ function ClienteDetalle() {
 
   if (!cliente) {
     return (
-      <div className="flex flex-col h-screen w-full p-4 items-center justify-center">
+      <div className="flex flex-col h-full w-full items-center justify-center gap-2 p-2 md:p-3">
         <p className="text-muted-foreground">Cliente no encontrado</p>
         <Button
           variant="outline"
@@ -189,9 +250,9 @@ function ClienteDetalle() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-4 space-y-4">
+    <div className="flex flex-col h-full w-full gap-2 p-2 md:p-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -200,12 +261,12 @@ function ClienteDetalle() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl font-bold">
+          <h1 className="text-2xl font-semibold">
             {cliente.nombre} {cliente.apellido}
           </h1>
         </div>
         <Button asChild>
-          <Link to="/turno/nuevo">
+          <Link to={`/turno/nuevo?clienteId=${cliente.id}`}>
             <Plus className="h-4 w-4 mr-2" />
             Agendar turno
           </Link>
@@ -213,9 +274,9 @@ function ClienteDetalle() {
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3 lg:gap-3 flex-1 min-h-0 overflow-hidden">
         {/* Left column - Client info + Stats */}
-        <div className="flex flex-col gap-4 overflow-auto">
+        <div className="flex flex-col gap-3 overflow-auto">
           {/* Client info card */}
           <Card>
             <CardHeader className="pb-3">
@@ -224,8 +285,8 @@ function ClienteDetalle() {
                 Informacion del cliente
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
                 <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-xl font-semibold text-primary shrink-0">
                   {cliente.nombre[0]}
                   {cliente.apellido[0]}
@@ -447,7 +508,7 @@ function ClienteDetalle() {
                   Este cliente aun no tiene turnos
                 </p>
                 <Button asChild className="mt-3">
-                  <Link to="/turno/nuevo">
+                  <Link to={`/turno/nuevo?clienteId=${cliente.id}`}>
                     <Plus className="h-4 w-4 mr-2" />
                     Agendar turno
                   </Link>
@@ -470,10 +531,10 @@ function ClienteDetalle() {
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-auto px-4 pb-4">
+          <CardContent className="flex-1 overflow-auto px-4 pb-4" style={{ maxHeight: "clamp(20rem, 48vh, 32rem)" }}>
             {turnosOrdenados.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-                <div className="rounded-full bg-muted p-4 mb-3">
+                <div className="rounded-full bg-muted p-3 mb-3">
                   <Calendar className="h-10 w-10 opacity-50" />
                 </div>
                 <p className="font-medium">No hay turnos registrados</p>
@@ -489,7 +550,9 @@ function ClienteDetalle() {
                     <TableHead>Tratamientos</TableHead>
                     <TableHead>Duracion</TableHead>
                     <TableHead>Costo</TableHead>
+                    <TableHead>Pagos</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -539,9 +602,42 @@ function ClienteDetalle() {
                           {formatCurrency(calcularCostoTurno(turno))}
                         </TableCell>
                         <TableCell>
+                          {turno.pagos && turno.pagos.length > 0 ? (
+                            <div className="space-y-1">
+                              {turno.pagos.map((pago) => (
+                                <div
+                                  key={pago.id}
+                                  className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1"
+                                >
+                                  <span className="text-xs font-medium text-green-700">
+                                    {formatCurrency(pago.monto)}
+                                  </span>
+                                  <Badge variant="outline" className="text-[11px]">
+                                    {getMetodoPagoLabel(pago.metodoPago)}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sin pagos</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={getEstadoBadgeVariant(turno.estado)}>
                             {getEstadoLabel(turno.estado)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleVerDetalleTurno(turno.id)}
+                            disabled={loadingTurno}
+                            aria-label="Ver detalle del turno"
+                            title="Ver detalle del turno"
+                          >
+                            Ver detalle
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -567,6 +663,18 @@ function ClienteDetalle() {
         onOpenChange={setDeleteDialogOpen}
         cliente={cliente}
         onConfirm={handleDelete}
+      />
+
+      <TurnoDetailSheet
+        open={turnoDetailOpen}
+        onOpenChange={handleCloseTurnoDetail}
+        turno={turnoSeleccionado}
+        onConfirmar={() => handleTurnoAction(() => confirmarTurno(turnoSeleccionado!.id))}
+        onCancelar={() => handleTurnoAction(() => cancelarTurno(turnoSeleccionado!.id))}
+        onMarcarCompletado={() => handleTurnoAction(() => marcarCompletado(turnoSeleccionado!.id))}
+        onMarcarAusente={() => handleTurnoAction(() => marcarAusente(turnoSeleccionado!.id))}
+        onRegistrarPago={() => handleCloseTurnoDetail(false)}
+        onDelete={() => handleTurnoAction(() => deleteTurno(turnoSeleccionado!.id))}
       />
     </div>
   );

@@ -1,500 +1,248 @@
-import { Button } from '@render/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@render/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@render/components/ui/dialog';
-import { Input } from '@render/components/ui/input';
-import { Label } from '@render/components/ui/label';
-import { ProgressCircle } from '@render/components/ui/progress';
-import { Skeleton } from '@render/components/ui/skeleton';
-import { Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle } from '@render/components/ui/stepper';
-import { Switch } from '@render/components/ui/switch';
-import { Textarea } from '@render/components/ui/textarea';
-import axios from 'axios';
-import { Check, Clock, EllipsisVertical, Link, LogOut, MessageSquare, Save, ScanQrCode, Send, Settings, Smartphone } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import WhatsappLogo from '@render/assets/WhatsApp_Symbol_Alternative_0.svg';
-import { useConfiguracion, usePlantillas } from '../hooks';
-import type { ConfiguracionRecordatorio, PlantillaMensaje } from '../types';
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import { toast } from "sonner";
+import {
+  Check,
+  Clock3,
+  Link,
+  LogOut,
+  MessageSquareText,
+  Save,
+  ScanQrCode,
+  Send,
+  Smartphone,
+} from "lucide-react";
+import { Button } from "@render/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@render/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@render/components/ui/dialog";
+import { Input } from "@render/components/ui/input";
+import { Label } from "@render/components/ui/label";
+import { ProgressCircle } from "@render/components/ui/progress";
+import { Skeleton } from "@render/components/ui/skeleton";
+import { Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle } from "@render/components/ui/stepper";
+import { Switch } from "@render/components/ui/switch";
+import WhatsappLogo from "@render/assets/WhatsApp_Symbol_Alternative_0.svg";
+import { useConfiguracion } from "../hooks";
+import type { ConfiguracionRecordatorio } from "../types";
 
-// Steps components for QR Dialog - Tu diseño original
 function Step1() {
-  return (
-    <StepperTitle className="flex gap-1">
-      Abrí{" "}
-      <span className="inline-flex gap-1">
-        WhatsApp <img src={WhatsappLogo} className="h-5 w-5 relative -top-0.5" alt="WhatsApp" />
-      </span>{" "}
-      en tu celular
-    </StepperTitle>
-  );
+  return <StepperTitle className="flex gap-1">Abrí <span className="inline-flex gap-1">WhatsApp <img src={WhatsappLogo} className="relative -top-0.5 h-5 w-5" alt="WhatsApp" /></span> en tu celular</StepperTitle>;
 }
 
-function Step2() {
-  return (
-    <StepperTitle className="flex gap-1">
-      Tocá{" "}
-      <span className="inline-flex gap-1">
-        Menu{" "}
-        <span className="bg-muted/80 border rounded-sm py-0.5 relative -top-0.5">
-          <EllipsisVertical size={14} />
-        </span>
-      </span>{" "}
-      &gt; Dispositivos vinculados
-    </StepperTitle>
-  );
-}
+function Step2() { return <StepperTitle>Entrá a Dispositivos vinculados</StepperTitle>; }
+function Step3() { return <StepperTitle>Presioná Vincular un dispositivo</StepperTitle>; }
+function Step4() { return <StepperTitle>Escaneá el código QR desde esta pantalla</StepperTitle>; }
 
-function Step3() {
-  return <StepperTitle>Presioná Vincular un dispositivo</StepperTitle>
-}
+const steps = [{ component: Step1 }, { component: Step2 }, { component: Step3 }, { component: Step4 }];
 
-function Step4() {
-  return <StepperTitle>Escaneá el código QR que aparece acá</StepperTitle>
-}
-
-const steps = [
-  { component: Step1 },
-  { component: Step2 },
-  { component: Step3 },
-  { component: Step4 },
-];
-
-export function ConfiguracionPanel({ 
-  status, 
-  setStatus, 
-  connected, 
-  setConnected 
-}: { 
-  status: 'desconectado' | 'conectando' | 'listo';
-  setStatus: (s: 'desconectado' | 'conectando' | 'listo') => void;
+export function ConfiguracionPanel({
+  status,
+  setStatus,
+  connected,
+  setConnected,
+}: {
+  status: "desconectado" | "conectando" | "listo";
+  setStatus: (s: "desconectado" | "conectando" | "listo") => void;
   connected: boolean;
   setConnected: (c: boolean) => void;
 }) {
   const { configuracion, loading: loadingConfig, actualizarConfiguracion } = useConfiguracion();
-  const { plantillas, loading: loadingPlantillas, actualizarPlantilla, crearPlantilla } = usePlantillas();
-  
   const [formData, setFormData] = useState<Partial<ConfiguracionRecordatorio>>({});
-  const [plantillaPrevio, setPlantillaPrevio] = useState<PlantillaMensaje | null>(null);
-  const [plantillaConfirmacion, setPlantillaConfirmacion] = useState<PlantillaMensaje | null>(null);
-  
-  // Connection states
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [loadingConnection, setLoadingConnection] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [startingConnection, setStartingConnection] = useState(false);
+  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const connectedRef = useRef(connected);
 
-  useEffect(() => {
-    if (configuracion) {
-      setFormData(configuracion);
-    }
-  }, [configuracion]);
+  useEffect(() => { connectedRef.current = connected; }, [connected]);
+  useEffect(() => { if (configuracion) setFormData(configuracion); }, [configuracion]);
 
-  useEffect(() => {
-    if (plantillas.length > 0) {
-      setPlantillaPrevio(plantillas.find(p => p.tipo === 'previo') || null);
-      setPlantillaConfirmacion(plantillas.find(p => p.tipo === 'confirmacion') || null);
-    }
-  }, [plantillas]);
-
-  const handleChange = <K extends keyof ConfiguracionRecordatorio>(
-    key: K,
-    value: ConfiguracionRecordatorio[K]
-  ) => {
+  const handleChange = <K extends keyof ConfiguracionRecordatorio>(key: K, value: ConfiguracionRecordatorio[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async () => {
-    await actualizarConfiguracion(formData);
-    
-    if (plantillaPrevio) {
-      await actualizarPlantilla(plantillaPrevio.id, { contenido: plantillaPrevio.contenido });
-    } else {
-      await crearPlantilla({ 
-        nombre: 'Recordatorio Previo', 
-        tipo: 'previo', 
-        contenido: 'Hola {nombre}, te recordamos tu turno para el {fecha} a las {hora}.', 
-        activa: true 
-      });
-    }
-
-    if (plantillaConfirmacion) {
-      await actualizarPlantilla(plantillaConfirmacion.id, { contenido: plantillaConfirmacion.contenido });
-    } else {
-      await crearPlantilla({ 
-        nombre: 'Confirmación', 
-        tipo: 'confirmacion', 
-        contenido: 'Hola {nombre}, tu turno de hoy a las {hora} está confirmado.', 
-        activa: true 
-      });
-    }
-  };
-
-  // Connection logic
   const clearAllIntervals = () => {
-    if (qrIntervalRef.current) {
-      clearInterval(qrIntervalRef.current);
-      qrIntervalRef.current = null;
-    }
-    if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current);
-      statusIntervalRef.current = null;
-    }
+    if (qrIntervalRef.current) { clearInterval(qrIntervalRef.current); qrIntervalRef.current = null; }
+    if (statusIntervalRef.current) { clearInterval(statusIntervalRef.current); statusIntervalRef.current = null; }
   };
 
   const iniciarSesion = async () => {
     clearAllIntervals();
     setQrUrl(null);
+    setStartingConnection(true);
     try {
-      await axios.post('http://localhost:3000/whatsapp/iniciar-sesion');
-      
+      await axios.post("http://localhost:3000/whatsapp/iniciar-sesion");
       const fetchQr = async () => {
-        try {
-          const res = await axios.get("http://localhost:3000/whatsapp/qr");
-          if (res.data.qr) setQrUrl(res.data.qr);
-        } catch {
-          // ignore
-        }
+        try { const res = await axios.get("http://localhost:3000/whatsapp/qr"); if (res.data.qr) setQrUrl(res.data.qr); } catch {}
       };
-      
       const pollStatus = async () => {
         try {
-          const res = await axios.get('http://localhost:3000/whatsapp/status');
-          if (res.data.ready) {
-            setStatus('listo');
+          const res = await axios.get("http://localhost:3000/whatsapp/status");
+          if (res.data.connected) {
+            connectedRef.current = true;
+            setStatus("listo");
             setConnected(true);
+            setDialogOpen(false);
+            setQrUrl(null);
             clearAllIntervals();
           } else if (res.data.authenticated) {
-            setStatus('conectando');
+            setStatus("conectando");
+            setConnected(false);
+            connectedRef.current = false;
           }
-        } catch {
-          // ignore
-        }
+        } catch {}
       };
-
       fetchQr();
       pollStatus();
       qrIntervalRef.current = setInterval(fetchQr, 5000);
       statusIntervalRef.current = setInterval(pollStatus, 2000);
     } catch {
-      toast.error('Error iniciando sesión');
+      toast.error("Error iniciando sesión");
+    } finally {
+      setStartingConnection(false);
     }
   };
 
-  const handleDialogChange = (open: boolean) => {
+  const handleDialogChange = async (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
       clearAllIntervals();
       setQrUrl(null);
+      if (!connectedRef.current) {
+        try {
+          await axios.post("http://localhost:3000/whatsapp/cancelar-conexion");
+          setStatus("desconectado");
+          setConnected(false);
+        } catch (error) {
+          console.error("Error cancelando conexión pendiente:", error);
+        }
+      }
     }
   };
 
   const cerrarSesion = async () => {
     setLoadingConnection(true);
     try {
-      await axios.post('http://localhost:3000/whatsapp/cerrar-sesion');
-      setStatus('desconectado');
+      await axios.post("http://localhost:3000/whatsapp/cerrar-sesion");
+      setStatus("desconectado");
       setConnected(false);
-      toast.success('WhatsApp desconectado');
+      toast.success("WhatsApp desconectado");
     } catch (error) {
       console.error(error);
-      toast.error('Error al desconectar');
+      toast.error("Error al desconectar");
     } finally {
       setLoadingConnection(false);
     }
   };
 
   const enviarMensajeTest = async () => {
+    const phone = window.prompt("Numero de telefono para enviar test (ej: 5493472000000):");
+    if (!phone) return;
     setSendingTest(true);
     try {
-      await axios.post('http://localhost:3000/whatsapp/send', {
-        phone: '5493472436328',
-        message: 'test'
-      });
-      toast.success('Mensaje de prueba enviado');
+      await axios.post("http://localhost:3000/whatsapp/send", { phone, message: "Mensaje de prueba desde Clientas" });
+      toast.success("Mensaje de prueba enviado");
     } catch (error) {
       console.error(error);
-      toast.error('Error al enviar mensaje de prueba');
+      toast.error("Error al enviar mensaje de prueba");
     } finally {
       setSendingTest(false);
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => clearAllIntervals();
-  }, []);
+  const handleSave = async () => {
+    await actualizarConfiguracion(formData);
+    toast.success("Configuración actualizada");
+  };
 
-  if (loadingConfig || loadingPlantillas) return <Skeleton className="h-96 w-full" />;
+  useEffect(() => () => clearAllIntervals(), []);
+
+  if (loadingConfig) return <Skeleton className="h-96 w-full" />;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-      {/* Left Column: Connection & Basic Settings */}
-      <div className="space-y-6">
-        <Card className="border-l-4 border-l-green-500 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Smartphone size={18} />
-              Estado de Conexión
-            </CardTitle>
-            <CardDescription>
-              Vinculá tu WhatsApp para enviar mensajes automáticos.
-            </CardDescription>
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Smartphone className="h-4 w-4" />Conexion con WhatsApp</CardTitle>
+            <CardDescription>Vinculá el dispositivo una sola vez y usa este panel para validar la sesión.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`h-3 w-3 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                <span className="font-medium">
-                  {connected ? 'Conectado y listo' : status === 'conectando' ? 'Conectando...' : 'Desconectado'}
-                </span>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
+              <div>
+                <p className="font-medium">{connected ? "Conectado y listo" : status === "conectando" ? "Conectando..." : "Desconectado"}</p>
+                <p className="text-sm text-muted-foreground">{connected ? "El bot puede enviar mensajes y procesar respuestas." : "Necesitas una sesión activa para enviar recordatorios."}</p>
               </div>
-              
-              {!connected ? (
-                <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" onClick={iniciarSesion}>
-                      <ScanQrCode size={14} className="mr-2" />
-                      Vincular
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="min-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle className='flex gap-2'>
-                        <Link size={16} />
-                        Vincular con WhatsApp
-                      </DialogTitle>
-                      <DialogDescription>
-                        Vinculá tu cuenta una sola vez escaneando el QR con tu celular.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="col-span-2 p-4 h-56">
-                        <Stepper orientation="vertical">
-                          <StepperNav>
-                            {steps.map((step, index) => (
-                              <StepperItem key={index} step={1} className="relative items-start not-last:flex-1">
-                                <div className="flex flex-row items-start pb-7 last:pb-0 gap-2.5">
-                                  <StepperIndicator className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                    {index + 1}
-                                  </StepperIndicator>
-                                  <div className="mt-1.25 text-left">
-                                    <step.component />
-                                  </div>
-                                </div>
-                                {index < steps.length - 1 && (
-                                  <StepperSeparator className="absolute inset-y-0 top-7 left-3 -order-1 m-0 -translate-x-1/2 group-data-[orientation=vertical]/stepper-nav:h-5" />
-                                )}
-                              </StepperItem>
-                            ))}
-                          </StepperNav>
-                        </Stepper>
-                      </div>
-                      <div className="col-span-1 flex items-center justify-center w-56 h-56 relative">
-                        {qrUrl ? (
-                          <>
-                            <img
-                              src={qrUrl}
-                              alt="QR WhatsApp"
-                              className={`w-56 h-56 border-2 rounded-md ${status !== 'desconectado' ? 'blur-sm' : ''}`}
-                            />
+              <div className={`h-3 w-3 rounded-full ${connected ? "bg-green-500" : status === "conectando" ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
+            </div>
 
-                            {/* Overlay conectando */}
-                            {status === 'conectando' && (
-                              <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
-                                <ProgressCircle
-                                  value={25}
-                                  size={24}
-                                  strokeWidth={3}
-                                  className="text-primary animate-spin"
-                                />
-                              </div>
-                            )}
-
-                            {/* Overlay cuando está listo */}
-                            {status === 'listo' && (
-                              <div className="absolute inset-0 bg-background/60 rounded-md flex items-center justify-center flex-col gap-1">
-                                <div className="rounded-full bg-green-500 p-1.5">
-                                  <Check size={20} className="text-white" />
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="h-56 w-56 flex items-center justify-center rounded-xl bg-muted/30">
-                            <ProgressCircle
-                              value={25}
-                              size={32}
-                              strokeWidth={3}
-                              className="text-accent animate-spin"
-                            />
-                          </div>
-                        )}
-                      </div>
+            {!connected ? (
+              <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
+                <DialogTrigger asChild>
+                  <Button onClick={iniciarSesion} disabled={startingConnection}><ScanQrCode className="mr-2 h-4 w-4" />{startingConnection ? "Iniciando..." : "Vincular dispositivo"}</Button>
+                </DialogTrigger>
+                <DialogContent className="min-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2"><Link className="h-4 w-4" />Vincular con WhatsApp</DialogTitle>
+                    <DialogDescription>Escaneá el QR para dejar tu sesión lista y persistida.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+                    <div className="p-2"><Stepper orientation="vertical"><StepperNav>{steps.map((step, index) => (<StepperItem key={index} step={1} className="relative items-start not-last:flex-1"><div className="flex flex-row items-start gap-2.5 pb-7 last:pb-0"><StepperIndicator className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{index + 1}</StepperIndicator><div className="mt-1.5 text-left"><step.component /></div></div>{index < steps.length - 1 && <StepperSeparator className="absolute inset-y-0 left-3 top-7 -order-1 m-0 -translate-x-1/2 group-data-[orientation=vertical]/stepper-nav:h-5" />}</StepperItem>))}</StepperNav></Stepper></div>
+                    <div className="relative flex h-[260px] items-center justify-center rounded-xl border bg-muted/20">
+                      {qrUrl ? (<><img src={qrUrl} alt="QR WhatsApp" className={`h-56 w-56 rounded-md border ${status !== "desconectado" ? "blur-sm" : ""}`} />{status === "conectando" && <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60"><ProgressCircle value={25} size={28} strokeWidth={3} className="animate-spin text-primary" /></div>}{status === "listo" && <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60"><div className="rounded-full bg-green-500 p-2"><Check className="h-5 w-5 text-white" /></div></div>}</>) : (<ProgressCircle value={25} size={32} strokeWidth={3} className="animate-spin text-primary" />)}
                     </div>
-                  </DialogContent>
-                </Dialog>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={enviarMensajeTest} 
-                    disabled={sendingTest}
-                  >
-                    <Send size={14} className="mr-2" />
-                    {sendingTest ? 'Enviando...' : 'Test'}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={cerrarSesion} 
-                    disabled={loadingConnection}
-                  >
-                    {loadingConnection ? (
-                      <>
-                        <ProgressCircle value={25} size={14} strokeWidth={3} className='text-muted-foreground animate-spin mr-2' />
-                        Cerrando...
-                      </>
-                    ) : (
-                      <>
-                        <LogOut size={14} className="mr-2" />
-                        Desconectar
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-4 pt-2 border-t">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Horario envío (Inicio)</Label>
-                  <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-muted-foreground" />
-                    <Input 
-                      type="number" 
-                      className="h-8" 
-                      value={formData.horaEnvioMinima} 
-                      onChange={e => handleChange('horaEnvioMinima', parseInt(e.target.value))}
-                    />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Horario envío (Fin)</Label>
-                  <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-muted-foreground" />
-                    <Input 
-                      type="number" 
-                      className="h-8" 
-                      value={formData.horaEnvioMaxima} 
-                      onChange={e => handleChange('horaEnvioMaxima', parseInt(e.target.value))}
-                    />
-                  </div>
-                </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={enviarMensajeTest} disabled={sendingTest}><Send className="mr-2 h-4 w-4" />{sendingTest ? "Enviando..." : "Enviar prueba"}</Button>
+                <Button variant="outline" onClick={cerrarSesion} disabled={loadingConnection}><LogOut className="mr-2 h-4 w-4" />{loadingConnection ? "Cerrando..." : "Desconectar"}</Button>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Settings size={18} />
-              Reglas de Envío
-            </CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Clock3 className="h-4 w-4" />Ventana de envio</CardTitle>
+            <CardDescription>Define entre qué horas puede disparar mensajes automáticos el sistema.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Recordatorio previo</Label>
-                <p className="text-xs text-muted-foreground">Enviar aviso antes del turno</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  className="w-16 h-8 text-right" 
-                  value={formData.horasAntesPrevio} 
-                  onChange={e => handleChange('horasAntesPrevio', parseInt(e.target.value))}
-                />
-                <span className="text-xs text-muted-foreground">hs antes</span>
-                <Switch 
-                  checked={formData.recordatorioPrevioActivo} 
-                  onCheckedChange={v => handleChange('recordatorioPrevioActivo', v)}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Confirmación inmediata</Label>
-                <p className="text-xs text-muted-foreground">Avisar cuando se confirma</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  className="w-16 h-8 text-right" 
-                  value={formData.horasAntesConfirmacion} 
-                  onChange={e => handleChange('horasAntesConfirmacion', parseInt(e.target.value))}
-                />
-                <span className="text-xs text-muted-foreground">hs antes</span>
-                <Switch 
-                  checked={formData.recordatorioConfirmacionActivo} 
-                  onCheckedChange={v => handleChange('recordatorioConfirmacionActivo', v)}
-                />
-              </div>
-            </div>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2"><Label htmlFor="hora-min">Hora de inicio</Label><Input id="hora-min" type="number" min={0} max={23} value={formData.horaEnvioMinima ?? 8} onChange={(e) => handleChange("horaEnvioMinima", parseInt(e.target.value, 10))} /></div>
+            <div className="space-y-2"><Label htmlFor="hora-max">Hora de cierre</Label><Input id="hora-max" type="number" min={0} max={23} value={formData.horaEnvioMaxima ?? 21} onChange={(e) => handleChange("horaEnvioMaxima", parseInt(e.target.value, 10))} /></div>
+            <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground sm:col-span-2">Recomendado: usar una ventana amplia para no acumular envíos fuera de horario.</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Right Column: Templates */}
-      <div className="space-y-6">
-        <Card className="h-full shadow-sm flex flex-col">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare size={18} />
-              Plantillas de Mensajes
-            </CardTitle>
-            <CardDescription>
-              Personalizá los mensajes que se envían automáticamente.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 space-y-6">
-            <div className="space-y-2">
-              <Label className="font-medium">Mensaje de Recordatorio (Previo)</Label>
-              <Textarea 
-                className="min-h-[100px] font-sans resize-none"
-                value={plantillaPrevio?.contenido || ''}
-                onChange={e => setPlantillaPrevio(prev => prev ? ({...prev, contenido: e.target.value}) : null)}
-                placeholder="Hola {nombre}..."
-              />
-              <p className="text-xs text-muted-foreground">
-                Variables: {'{nombre}'}, {'{fecha}'}, {'{hora}'}, {'{tratamientos}'}
-              </p>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><MessageSquareText className="h-4 w-4" />Reglas de recordatorios</CardTitle>
+          <CardDescription>Ajusta cuándo se envía cada mensaje y si cada regla queda activa.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-4 space-y-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Recordatorio previo</p><p className="text-sm text-muted-foreground">Se envía antes del turno según la ventana configurada.</p></div><Switch checked={formData.recordatorioPrevioActivo ?? true} onCheckedChange={(value) => handleChange("recordatorioPrevioActivo", value)} /></div><div className="space-y-2"><Label htmlFor="horas-previo">Horas antes</Label><Input id="horas-previo" type="number" min={0} value={formData.horasAntesPrevio ?? 24} onChange={(e) => handleChange("horasAntesPrevio", parseInt(e.target.value, 10))} /></div></div>
+            <div className="rounded-lg border p-4 space-y-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Confirmación</p><p className="text-sm text-muted-foreground">Se envía más cerca del turno y solo si el turno ya está confirmado.</p></div><Switch checked={formData.recordatorioConfirmacionActivo ?? true} onCheckedChange={(value) => handleChange("recordatorioConfirmacionActivo", value)} /></div><div className="space-y-2"><Label htmlFor="horas-confirmacion">Horas antes</Label><Input id="horas-confirmacion" type="number" min={0} value={formData.horasAntesConfirmacion ?? 1} onChange={(e) => handleChange("horasAntesConfirmacion", parseInt(e.target.value, 10))} /></div></div>
+          </div>
 
-            <div className="space-y-2">
-              <Label className="font-medium">Mensaje de Confirmación</Label>
-              <Textarea 
-                className="min-h-[100px] font-sans resize-none"
-                value={plantillaConfirmacion?.contenido || ''}
-                onChange={e => setPlantillaConfirmacion(prev => prev ? ({...prev, contenido: e.target.value}) : null)}
-                placeholder="Tu turno ha sido confirmado..."
-              />
-            </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-4 space-y-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Reintento 1</p><p className="text-sm text-muted-foreground">Se envía si no hubo respuesta en el primer intento.</p></div><Switch checked={formData.reintento1Activo ?? true} onCheckedChange={(value) => handleChange("reintento1Activo", value)} /></div><div className="space-y-2"><Label htmlFor="min-reintento-1">Minutos después</Label><Input id="min-reintento-1" type="number" min={0} value={formData.minutosDespuesReintento1 ?? 30} onChange={(e) => handleChange("minutosDespuesReintento1", parseInt(e.target.value, 10))} /></div></div>
+            <div className="rounded-lg border p-4 space-y-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Reintento 2</p><p className="text-sm text-muted-foreground">Último aviso antes de marcarlo como sin confirmar.</p></div><Switch checked={formData.reintento2Activo ?? true} onCheckedChange={(value) => handleChange("reintento2Activo", value)} /></div><div className="space-y-2"><Label htmlFor="min-reintento-2">Minutos después</Label><Input id="min-reintento-2" type="number" min={0} value={formData.minutosDespuesReintento2 ?? 60} onChange={(e) => handleChange("minutosDespuesReintento2", parseInt(e.target.value, 10))} /></div></div>
+          </div>
 
-            <div className="pt-4 flex justify-end">
-              <Button onClick={handleSave}>
-                <Save size={16} className="mr-2" />
-                Guardar Configuración
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-4 space-y-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">Auto cancelar sin respuesta</p><p className="text-sm text-muted-foreground">Cambia el turno a sin confirmar luego de esperar.</p></div><Switch checked={formData.autoCancelarSinRespuesta ?? true} onCheckedChange={(value) => handleChange("autoCancelarSinRespuesta", value)} /></div><div className="space-y-2"><Label htmlFor="espera-sin-respuesta">Minutos de espera</Label><Input id="espera-sin-respuesta" type="number" min={0} value={formData.minutosEsperaSinRespuesta ?? 120} onChange={(e) => handleChange("minutosEsperaSinRespuesta", parseInt(e.target.value, 10))} /></div></div>
+            <div />
+          </div>
+
+          <div className="flex justify-end border-t pt-4"><Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Guardar configuracion</Button></div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

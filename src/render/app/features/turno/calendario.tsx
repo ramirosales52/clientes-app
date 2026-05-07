@@ -4,27 +4,19 @@ import { Calendar, dayjsLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router";
 import { CalendarPlus } from "lucide-react";
 import { cn } from "@render/lib/utils";
+import { useTurnos, type Turno } from "@render/hooks/use-turnos";
+import { TurnoDetailSheet } from "./components/turno-detail-sheet";
+import { DeleteTurnoDialog } from "./components/delete-turno-dialog";
+import { PagoModal } from "./components/pago-modal";
+import type { Franja } from "../configuracion/configuracion";
 
 const localizer = dayjsLocalizer(dayjs)
 dayjs.locale("es")
-
-type Turno = {
-  id: string;
-  fechaInicio: string;
-  fechaFin: string;
-  cliente: {
-    nombre: string;
-    apellido: string;
-  };
-  tratamientos: [{
-    nombre: string
-  }];
-};
 
 const messages = {
   allDay: "Todo el dia",
@@ -42,32 +34,133 @@ const messages = {
   showMore: (total: number) => `+${total} mas`,
 };
 
-function Calendario() {
-  const [turnos, setTurnos] = useState<Turno[]>([]);
-  const [view, setView] = useState<"month" | "week" | "day">("week");
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  turno: Turno;
+}
 
-  const fetchTurnos = async () => {
-    try {
-      const res = await axios.get<Turno[]>("http://localhost:3000/turnos");
-      setTurnos(res.data);
-    } catch (err) {
-      console.error("Error al cargar turnos:", err);
+function useCalendarBounds() {
+  const [min, setMin] = useState(dayjs().hour(8).minute(0).second(0).toDate());
+  const [max, setMax] = useState(dayjs().hour(20).minute(0).second(0).toDate());
+
+  useEffect(() => {
+    axios.get<{ diaSemana: number; activo: boolean; franjas: Franja[] }[]>(
+      "http://localhost:3000/configuracion/horarios"
+    ).then((res) => {
+      const activos = res.data.filter(h => h.activo && h.franjas.length > 0);
+      if (activos.length === 0) return;
+
+      let earliest = 24;
+      let latest = 0;
+
+      for (const horario of activos) {
+        for (const franja of horario.franjas) {
+          const [h1] = franja.horaInicio.split(":").map(Number);
+          const [h2, m2] = franja.horaFin.split(":").map(Number);
+          if (h1 < earliest) earliest = h1;
+          const fin = m2 > 0 ? h2 + 1 : h2;
+          if (fin > latest) latest = fin;
+        }
+      }
+
+      setMin(dayjs().hour(earliest).minute(0).second(0).toDate());
+      setMax(dayjs().hour(latest).minute(0).second(0).toDate());
+    }).catch(() => {
+      // keep defaults
+    });
+  }, []);
+
+  return { min, max };
+}
+
+function Calendario() {
+  const {
+    turnos,
+    fetchTurnos,
+    confirmarTurno,
+    cancelarTurno,
+    marcarCompletado,
+    marcarAusente,
+    deleteTurno,
+  } = useTurnos();
+
+  const [view, setView] = useState<"month" | "week" | "day">("week");
+  const { min, max } = useCalendarBounds();
+
+  // Detail sheet state
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pagoModalOpen, setPagoModalOpen] = useState(false);
+
+  const eventos: CalendarEvent[] = useMemo(() =>
+    turnos
+      .filter(t => t.estado !== "cancelado")
+      .map((turno) => ({
+        id: turno.id,
+        title: `${turno.cliente.nombre} ${turno.cliente.apellido}`,
+        start: new Date(turno.fechaInicio),
+        end: new Date(turno.fechaFin),
+        turno,
+      })),
+    [turnos]
+  );
+
+  const handleSelectEvent = (event: CalendarEvent) => {
+    setTurnoSeleccionado(event.turno);
+    setSheetOpen(true);
+  };
+
+  const handleConfirmar = async () => {
+    if (turnoSeleccionado) {
+      await confirmarTurno(turnoSeleccionado.id);
+      setSheetOpen(false);
     }
   };
 
-  useEffect(() => {
-    fetchTurnos();
-  }, []);
+  const handleCancelar = async () => {
+    if (turnoSeleccionado) {
+      await cancelarTurno(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
+  };
 
-  const eventos = turnos.map((turno) => ({
-    id: turno.id,
-    title: `${turno.cliente.nombre} ${turno.cliente.apellido}`,
-    start: new Date(turno.fechaInicio),
-    end: new Date(turno.fechaFin),
-    tratamientos: turno.tratamientos.map((t) => t.nombre),
-  }));
+  const handleMarcarCompletado = async () => {
+    if (turnoSeleccionado) {
+      await marcarCompletado(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
+  };
 
-  const CustomEvent = ({ event }: { event: any }) => {
+  const handleMarcarAusente = async () => {
+    if (turnoSeleccionado) {
+      await marcarAusente(turnoSeleccionado.id);
+      setSheetOpen(false);
+    }
+  };
+
+  const handleRegistrarPago = () => {
+    setSheetOpen(false);
+    setPagoModalOpen(true);
+  };
+
+  const handleDeleteClick = () => {
+    setSheetOpen(false);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (turnoSeleccionado) {
+      await deleteTurno(turnoSeleccionado.id);
+      setDeleteDialogOpen(false);
+      setTurnoSeleccionado(null);
+    }
+  };
+
+  const CustomEvent = ({ event }: { event: CalendarEvent }) => {
     const duracionMin = dayjs(event.end).diff(dayjs(event.start), 'minute');
     const esCorto = duracionMin <= 30;
     const isMonth = view === "month";
@@ -109,9 +202,12 @@ function Calendario() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full p-4 space-y-4">
-      <div className="flex justify-between">
-        <h1 className="text-xl font-bold">Calendario</h1>
+    <div className="flex flex-col h-full w-full gap-3 p-3 md:p-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold">Calendario</h1>
+          <p className="text-sm text-muted-foreground">Vista semanal de turnos</p>
+        </div>
         <Button asChild>
           <Link to="/turno/nuevo">
             <CalendarPlus className="h-4 w-4 mr-2" />
@@ -120,14 +216,14 @@ function Calendario() {
         </Button>
       </div>
 
-      <Card className="flex-1 bg-background">
-        <CardContent className="p-4 h-full">
-          <Calendar
+      <Card className="flex-1 bg-background min-h-0 overflow-hidden flex flex-col">
+        <CardContent className="flex-1 min-h-0 p-3 md:p-4">
+          <Calendar<CalendarEvent>
             showMultiDayTimes={false}
-            className="max-h-[89vh] overflow-auto"
+            className="h-full overflow-auto"
             localizer={localizer}
             events={eventos}
-            onDoubleClickEvent={() => { }}
+            onSelectEvent={handleSelectEvent}
             popup
             components={{ event: CustomEvent }}
             views={["month", "week", "day"]}
@@ -135,11 +231,37 @@ function Calendario() {
             view={view}
             onView={(v) => setView(v as "month" | "week" | "day")}
             messages={messages}
-            min={dayjs('2022-12-18T08:00:00').toDate()}
-            max={dayjs('2022-12-18T20:00:00').toDate()}
+            min={min}
+            max={max}
           />
         </CardContent>
       </Card>
+
+      <TurnoDetailSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        turno={turnoSeleccionado}
+        onConfirmar={handleConfirmar}
+        onCancelar={handleCancelar}
+        onMarcarCompletado={handleMarcarCompletado}
+        onMarcarAusente={handleMarcarAusente}
+        onRegistrarPago={handleRegistrarPago}
+        onDelete={handleDeleteClick}
+      />
+
+      <DeleteTurnoDialog
+        turno={turnoSeleccionado}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+      />
+
+      <PagoModal
+        open={pagoModalOpen}
+        onOpenChange={setPagoModalOpen}
+        turno={turnoSeleccionado}
+        onSuccess={() => fetchTurnos()}
+      />
     </div>
   );
 }

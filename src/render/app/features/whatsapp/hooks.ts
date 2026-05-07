@@ -77,6 +77,24 @@ export function useRecordatorios(filtros?: RecordatorioFiltros) {
     }
   };
 
+  const procesarPendientes = async (): Promise<boolean> => {
+    try {
+      const res = await axios.post<{ enviados: number; fallidos: number }>(`${API_URL}/procesar`);
+      const { enviados, fallidos } = res.data;
+      if (enviados === 0 && fallidos === 0) {
+        toast("No había recordatorios listos para procesar");
+      } else {
+        toast.success(`Procesados: ${enviados} enviados, ${fallidos} fallidos`);
+      }
+      fetchRecordatorios();
+      return true;
+    } catch (err) {
+      console.error('Error procesando recordatorios:', err);
+      toast.error('Error al procesar recordatorios');
+      return false;
+    }
+  };
+
   return {
     recordatorios,
     loading,
@@ -84,6 +102,7 @@ export function useRecordatorios(filtros?: RecordatorioFiltros) {
     enviarRecordatorio,
     cancelarRecordatorio,
     actualizarMensaje,
+    procesarPendientes,
   };
 }
 

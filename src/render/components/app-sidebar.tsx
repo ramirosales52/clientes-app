@@ -1,4 +1,4 @@
-import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users, CalendarPlus, Settings, Check, X } from "lucide-react";
+import { Home, ClipboardList, BotMessageSquare, CalendarClock, NotebookText, Users, CalendarPlus, Settings, Check, X, Wallet, ChartNoAxesCombined } from "lucide-react";
 import Logo from "../assets/logo2.png";
 
 import {
@@ -17,8 +17,10 @@ import { ClientesModal } from "../app/features/clientes/components/clientes-moda
 import TratamientosModal from "../app/features/tratamientos/components/tratamientos-modal";
 import { Button } from "./ui/button";
 import { useWhatsappStatus } from "@render/hooks/use-whatsapp-status";
+import { Badge } from "@render/components/ui/badge";
+import { Separator } from "@render/components/ui/separator";
 
-// Menu items.
+// Menu items
 const items = [
   {
     title: "Principal",
@@ -46,7 +48,17 @@ const items = [
     icon: ClipboardList
   },
   {
-    title: "Whatsapp Bot",
+    title: "Pagos",
+    url: "/pagos",
+    icon: Wallet,
+  },
+  {
+    title: "Metricas",
+    url: "/metricas",
+    icon: ChartNoAxesCombined,
+  },
+  {
+    title: "Recordatorios",
     url: "/whatsapp",
     icon: BotMessageSquare
   },
@@ -64,8 +76,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="inset">
-      <SidebarHeader className="flex items-center">
-        <img src={Logo} className="w-28 select-none" />
+      <SidebarHeader className="gap-3 px-4 py-4 flex items-center">
+        <img src={Logo} alt="Clientas" className="w-28 select-none" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -82,9 +94,9 @@ export function AppSidebar() {
                         <span>{item.title}</span>
                         {isWhatsapp && (
                           isConnected ? (
-                            <Check className="ml-auto h-3.5 w-3.5 text-green-500" />
+                            <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
                           ) : (
-                            <X className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                            <X className="ml-auto h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                           )
                         )}
                       </Link>
@@ -95,8 +107,11 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <Separator className="my-1" />
+
         <SidebarGroup>
-          <SidebarGroupLabel>Acciones rapidas</SidebarGroupLabel>
+          <SidebarGroupLabel>Acciones rápidas</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

@@ -5,6 +5,7 @@ import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import parsePhoneNumberFromString from 'libphonenumber-js';
+import { calcularCostoHistoricoTurno } from '../tratamientos/costo-historico';
 
 function validarTelefonoCompleto(codArea: string, numero: string) {
   const telefonoCompleto = `549${codArea}${numero}`;
@@ -20,6 +21,13 @@ export class ClienteService {
     @InjectRepository(Cliente)
     private clienteRepository: Repository<Cliente>,
   ) { }
+
+  private async asegurarCostoTotalTurno(turno: Cliente['turnos'][number]) {
+    if (turno.costoTotal != null) return turno;
+
+    turno.costoTotal = calcularCostoHistoricoTurno(turno.tratamientos, turno.fechaInicio);
+    return turno;
+  }
 
   async create(dto: CreateClienteDto): Promise<Cliente> {
     validarTelefonoCompleto(dto.codArea, dto.numero);
@@ -37,16 +45,30 @@ export class ClienteService {
   }
 
   findAll(): Promise<Cliente[]> {
-    return this.clienteRepository.find({ relations: ['turnos'] });
+    return this.clienteRepository
+      .find({
+        relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados'],
+      })
+      .then(async (clientes) =>
+        Promise.all(
+          clientes.map(async (cliente) => ({
+            ...cliente,
+            turnos: await Promise.all(cliente.turnos.map((turno) => this.asegurarCostoTotalTurno(turno))),
+          })),
+        ),
+      );
   }
 
   async findOne(id: string): Promise<Cliente> {
     const cliente = await this.clienteRepository.findOne({
       where: { id },
-      relations: ['turnos', 'turnos.tratamientos'],
+      relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados'],
     });
     if (!cliente) throw new NotFoundException('Cliente no encontrado');
-    return cliente;
+    return {
+      ...cliente,
+      turnos: await Promise.all(cliente.turnos.map((turno) => this.asegurarCostoTotalTurno(turno))),
+    };
   }
 
   async findPaginated(limit = 10, offset = 0, search = '') {

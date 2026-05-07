@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { PagosService } from './pagos.service';
 import { CreatePagoDto } from './dto/create-pago.dto';
 
@@ -29,6 +29,11 @@ export class PagosController {
   @Get('cliente/:clienteId/deuda')
   getDeudaCliente(@Param('clienteId') clienteId: string) {
     return this.pagosService.getDeudaCliente(clienteId);
+  }
+
+  @Get('deudas/turnos')
+  getTurnosConDeuda() {
+    return this.pagosService.getTurnosConDeuda();
   }
 
   @Get(':id')

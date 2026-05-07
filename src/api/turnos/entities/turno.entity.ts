@@ -24,6 +24,7 @@ import type { HistorialEstadoTurno } from './historial-estado.entity';
 export enum EstadoTurno {
   PENDIENTE = 'pendiente',
   CONFIRMADO = 'confirmado',
+  SIN_CONFIRMAR = 'sin_confirmar',
   COMPLETADO = 'completado',
   CANCELADO = 'cancelado',
   AUSENTE = 'ausente',
@@ -32,21 +33,29 @@ export enum EstadoTurno {
 @Entity()
 export class Turno {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column('datetime')
   @IsNotEmpty()
   @IsDate()
-  fechaInicio: Date;
+  fechaInicio!: Date;
 
   @Column('datetime')
   @IsNotEmpty()
   @IsDate()
-  fechaFin: Date;
+  fechaFin!: Date;
 
   @ManyToMany(() => Tratamiento, { eager: true })
   @JoinTable()
-  tratamientos: Tratamiento[];
+  tratamientos!: Tratamiento[];
+
+  @Column('simple-json', { nullable: true })
+  tratamientosSnapshot?: {
+    id: string;
+    nombre: string;
+    costo: number;
+    duracion: number;
+  }[];
 
   @Column({
     type: 'text',
@@ -54,20 +63,23 @@ export class Turno {
     default: EstadoTurno.PENDIENTE,
   })
   @IsEnum(EstadoTurno)
-  estado: EstadoTurno;
+  estado!: EstadoTurno;
 
   @ManyToOne(() => Cliente, (cliente) => cliente.turnos, {
     eager: true,
     nullable: false,
     onDelete: 'CASCADE',
   })
-  cliente: Cliente;
+  cliente!: Cliente;
 
   @OneToMany('Pago', 'turno', { eager: true })
-  pagos: Pago[];
+  pagos!: Pago[];
 
   @OneToMany('HistorialEstadoTurno', 'turno', { eager: true })
-  historialEstados: HistorialEstadoTurno[];
+  historialEstados!: HistorialEstadoTurno[];
+
+  @Column('float', { nullable: true })
+  costoTotal?: number;
 
   @Column({ nullable: true })
   @IsOptional()
@@ -75,8 +87,8 @@ export class Turno {
   notas?: string;
 
   @CreateDateColumn()
-  creadoEn: Date;
+  creadoEn!: Date;
 
   @UpdateDateColumn()
-  actualizadoEn: Date;
+  actualizadoEn!: Date;
 }

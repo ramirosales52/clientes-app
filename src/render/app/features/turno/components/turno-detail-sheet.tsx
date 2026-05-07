@@ -21,12 +21,12 @@ import {
 import type { EstadoTurno, Turno } from "@render/hooks/use-turnos";
 import {
   calcularCostoTurno,
-  calcularDeudaTurno,
   calcularMontoPagado,
   METODOS_PAGO,
 } from "@render/hooks/use-pagos";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
+import { ScrollArea } from "@render/components/ui/scroll-area";
 
 dayjs.locale("es");
 
@@ -44,13 +44,13 @@ interface Props {
 
 const estadoConfig: Record<
   EstadoTurno,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  { label: string; className: string }
 > = {
-  pendiente: { label: "Pendiente", variant: "secondary" },
-  confirmado: { label: "Confirmado", variant: "default" },
-  completado: { label: "Completado", variant: "outline" },
-  cancelado: { label: "Cancelado", variant: "destructive" },
-  ausente: { label: "Ausente", variant: "destructive" },
+  pendiente: { label: "Pendiente", className: "border-amber-500/40 bg-amber-500/10 text-amber-700" },
+  confirmado: { label: "Confirmado", className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700" },
+  completado: { label: "Completado", className: "border-sky-500/40 bg-sky-500/10 text-sky-700" },
+  cancelado: { label: "Cancelado", className: "border-rose-500/40 bg-rose-500/10 text-rose-700" },
+  ausente: { label: "Ausente", className: "border-orange-500/40 bg-orange-500/10 text-orange-700" },
 };
 
 function formatCurrency(value: number): string {
@@ -92,9 +92,17 @@ export function TurnoDetailSheet({
   if (!turno) return null;
 
   const config = estadoConfig[turno.estado];
-  const costoTotal = calcularCostoTurno(turno.tratamientos);
+  const costoTotal = turno.costoTotal ?? calcularCostoTurno(turno.tratamientos, turno.costoTotal);
   const montoPagado = calcularMontoPagado(turno.pagos || []);
-  const deuda = calcularDeudaTurno(turno.tratamientos, turno.pagos || []);
+  const deuda = costoTotal - montoPagado;
+  const tratamientosParaDetalle = turno.tratamientosSnapshot?.length
+    ? turno.tratamientosSnapshot
+    : turno.tratamientos.map((tratamiento) => ({
+        id: tratamiento.id,
+        nombre: tratamiento.nombre,
+        costo: tratamiento.costo,
+        duracion: tratamiento.duracion,
+      }));
 
   const canConfirmar = turno.estado === "pendiente";
   const canCancelar = turno.estado === "pendiente" || turno.estado === "confirmado";
@@ -108,24 +116,25 @@ export function TurnoDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             Detalle del turno
-            <Badge variant={config.variant}>{config.label}</Badge>
+            <Badge variant="outline" className={config.className}>{config.label}</Badge>
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-6 py-6">
+        <ScrollArea className="h-[calc(100vh-6.5rem)] pr-2">
+          <div className="space-y-4 py-6">
           {/* Fecha y Horario */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm font-medium">
               <Calendar className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">
+              <span>
                 {capitalizar(formatFecha(turno.fechaInicio))}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>
                 {formatHora(turno.fechaInicio)} - {formatHora(turno.fechaFin)}
@@ -139,14 +148,14 @@ export function TurnoDetailSheet({
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Cliente</h4>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+              <div className="flex size-9 items-center justify-center rounded-full bg-muted">
                 <User className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
                 <p className="font-medium">
                   {turno.cliente.nombre} {turno.cliente.apellido}
                 </p>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="h-3 w-3" />
                   {turno.cliente.codArea} {turno.cliente.numero}
                 </p>
@@ -159,8 +168,8 @@ export function TurnoDetailSheet({
           {/* Tratamientos */}
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Tratamientos</h4>
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              {turno.tratamientos.map((t) => (
+            <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+              {tratamientosParaDetalle.map((t) => (
                 <div key={t.id} className="flex justify-between text-sm">
                   <span>{t.nombre}</span>
                   <span className="text-muted-foreground">{formatCurrency(t.costo)}</span>
@@ -182,12 +191,12 @@ export function TurnoDetailSheet({
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-muted-foreground">Pagos</h4>
                 
-                {turno.pagos && turno.pagos.length > 0 ? (
+                 {turno.pagos && turno.pagos.length > 0 ? (
                   <div className="space-y-2">
                     {turno.pagos.map((pago) => {
                       const metodoLabel = METODOS_PAGO.find(m => m.value === pago.metodoPago)?.label || pago.metodoPago;
                       return (
-                        <div key={pago.id} className="rounded-lg bg-muted/50 p-3 space-y-1">
+                        <div key={pago.id} className="space-y-1 rounded-lg bg-muted/50 p-2.5">
                           <div className="flex justify-between items-center">
                             <span className="font-medium text-green-600">
                               {formatCurrency(pago.monto)}
@@ -208,7 +217,7 @@ export function TurnoDetailSheet({
                 )}
 
                 {/* Resumen */}
-                <div className="rounded-lg bg-muted/50 p-3">
+                 <div className="rounded-lg bg-muted/50 p-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Total turno</span>
                     <span className="font-medium">{formatCurrency(costoTotal)}</span>
@@ -225,7 +234,7 @@ export function TurnoDetailSheet({
                   )}
                   {deuda <= 0 && (
                     <div className="flex justify-center pt-2">
-                      <Badge variant="outline" className="text-green-600 border-green-600">
+                      <Badge variant="outline" className="border-green-600 text-green-600">
                         Pagado completo
                       </Badge>
                     </div>
@@ -241,7 +250,7 @@ export function TurnoDetailSheet({
             <>
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">Notas</h4>
-                <p className="text-sm">{turno.notas}</p>
+                <p className="text-sm leading-relaxed">{turno.notas}</p>
               </div>
               <Separator />
             </>
@@ -265,7 +274,10 @@ export function TurnoDetailSheet({
                           <span className="text-muted-foreground">→</span>
                         </>
                       ) : null}
-                      <Badge variant={estadoConfig[h.estadoNuevo]?.variant || "outline"} className="text-xs">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${estadoConfig[h.estadoNuevo]?.className || ""}`}
+                      >
                         {estadoConfig[h.estadoNuevo]?.label || h.estadoNuevo}
                       </Badge>
                     </div>
@@ -281,9 +293,9 @@ export function TurnoDetailSheet({
           <Separator />
 
           {/* Acciones */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-muted-foreground">Acciones</h4>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">Acciones</h4>
+              <div className="grid grid-cols-2 gap-2">
               {canConfirmar && (
                 <Button onClick={onConfirmar} variant="outline" className="justify-start">
                   <Check className="mr-2 h-4 w-4" />
@@ -320,16 +332,17 @@ export function TurnoDetailSheet({
               )}
             </div>
             <Separator />
-            <Button
-              onClick={onDelete}
-              variant="destructive"
-              className="w-full"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar turno
-            </Button>
+              <Button
+                onClick={onDelete}
+                variant="destructive"
+                className="w-full"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar turno
+              </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );

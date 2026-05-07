@@ -9,6 +9,11 @@ export interface TurnoTratamiento {
   nombre: string;
   costo: number;
   duracion: number;
+  costoHistorico?: number;
+  historialPrecios?: {
+    precio: number;
+    fecha: string;
+  }[];
 }
 
 export interface TurnoCliente {
@@ -39,8 +44,15 @@ export interface Turno {
   fechaFin: string;
   estado: EstadoTurno;
   notas?: string;
+  costoTotal?: number;
   cliente: TurnoCliente;
   tratamientos: TurnoTratamiento[];
+  tratamientosSnapshot?: {
+    id: string;
+    nombre: string;
+    costo: number;
+    duracion: number;
+  }[];
   pagos: TurnoPago[];
   historialEstados: HistorialEstado[];
   creadoEn: string;
@@ -208,6 +220,15 @@ export function useTurnos() {
 
   useEffect(() => {
     fetchTurnos();
+    const interval = setInterval(fetchTurnos, 30000);
+    const unsubTurnosActualizados = window.electron?.onTurnosActualizados(() => {
+      fetchTurnos();
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsubTurnosActualizados?.();
+    };
   }, [fetchTurnos]);
 
   return {

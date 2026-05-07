@@ -1,87 +1,101 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@render/components/ui/tabs';
-import axios from 'axios';
-import { LayoutDashboard, Settings } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Toaster } from 'sonner';
-import { ConfiguracionPanel } from './components/configuracion-panel';
-import { ListaRecordatorios } from './components/lista-recordatorios';
-import { StatsCards } from './components/stats-cards';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { LayoutDashboard, Settings } from "lucide-react";
+import { Badge } from "@render/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@render/components/ui/tabs";
+import { ConfiguracionPanel } from "./components/configuracion-panel";
+import { ListaRecordatorios } from "./components/lista-recordatorios";
+import { StatsCards } from "./components/stats-cards";
 
-type ConnectionStatus = 'desconectado' | 'conectando' | 'listo';
+type ConnectionStatus = "desconectado" | "conectando" | "listo";
+
+function getStatusLabel(status: ConnectionStatus): string {
+  if (status === "listo") return "WhatsApp conectado";
+  if (status === "conectando") return "Conectando";
+  return "WhatsApp desconectado";
+}
 
 export default function WhatsappPage() {
   const [connected, setConnected] = useState(false);
-  const [status, setStatus] = useState<ConnectionStatus>('desconectado');
+  const [status, setStatus] = useState<ConnectionStatus>("desconectado");
 
-  // Check connection status on mount
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/whatsapp/status');
-        if (res.data.ready) {
-          setStatus('listo');
+        const res = await axios.get("http://localhost:3000/whatsapp/status");
+        if (res.data.connected) {
+          setStatus("listo");
           setConnected(true);
         } else if (res.data.authenticated) {
-          // authenticated but not ready = still connecting
-          setStatus('conectando');
+          setStatus("conectando");
           setConnected(false);
         } else {
-          setStatus('desconectado');
+          setStatus("desconectado");
           setConnected(false);
         }
       } catch {
-        setStatus('desconectado');
+        setStatus("desconectado");
         setConnected(false);
       }
     };
+
     checkStatus();
+    const interval = setInterval(checkStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="flex flex-col h-full w-full p-6 space-y-6 overflow-hidden bg-background">
-      <Toaster position='bottom-center' />
-      
-      <div className='flex justify-between items-start'>
+    <div className="flex h-full w-full flex-col gap-2 overflow-auto p-2 md:p-3">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Centro de Mensajería</h1>
-          <p className="text-muted-foreground">Gestioná los recordatorios automáticos por WhatsApp.</p>
+          <h1 className="text-2xl font-semibold">Recordatorios</h1>
+          <p className="text-sm text-muted-foreground">
+            Centro de control de WhatsApp y mensajes automáticos.
+          </p>
         </div>
-        
-        <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 border ${
-          status === 'listo' ? 'bg-green-50 text-green-700 border-green-200' :
-          status === 'conectando' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-          'bg-red-50 text-red-700 border-red-200'
-        }`}>
-          <div className={`h-2 w-2 rounded-full ${
-            status === 'listo' ? 'bg-green-500' :
-            status === 'conectando' ? 'bg-yellow-500 animate-pulse' :
-            'bg-red-500'
-          }`} />
-          {status === 'listo' ? 'WhatsApp Conectado' : status === 'conectando' ? 'Conectando...' : 'WhatsApp Desconectado'}
+
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={
+              status === "listo" ? "default" : status === "conectando" ? "secondary" : "destructive"
+            }
+            className="gap-2"
+          >
+            <div
+              className={`h-2 w-2 rounded-full ${
+                status === "listo"
+                  ? "bg-primary-foreground"
+                  : status === "conectando"
+                    ? "bg-secondary-foreground animate-pulse"
+                    : "bg-destructive-foreground"
+              }`}
+            />
+            {getStatusLabel(status)}
+          </Badge>
         </div>
       </div>
 
       <StatsCards />
 
-      <Tabs defaultValue="dashboard" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-fit">
-          <TabsTrigger value="dashboard" className="gap-2 px-4">
+      <Tabs defaultValue="recordatorios" className="flex flex-col gap-2">
+        <TabsList className="w-full justify-start overflow-auto">
+          <TabsTrigger value="recordatorios" className="gap-2 px-4">
             <LayoutDashboard size={16} />
-            Dashboard
+            Recordatorios
           </TabsTrigger>
           <TabsTrigger value="configuracion" className="gap-2 px-4">
             <Settings size={16} />
-            Configuración y Conexión
+            Configuracion
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 overflow-auto mt-4 pr-2">
-          <TabsContent value="dashboard" className="space-y-4 m-0 h-full">
+        <div className="mt-0">
+          <TabsContent value="recordatorios" className="mt-0 flex flex-col gap-2">
             <ListaRecordatorios />
           </TabsContent>
 
-          <TabsContent value="configuracion" className="m-0 h-full">
-            <ConfiguracionPanel 
+          <TabsContent value="configuracion" className="mt-0 flex flex-col gap-2">
+            <ConfiguracionPanel
               status={status}
               setStatus={setStatus}
               connected={connected}

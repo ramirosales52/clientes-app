@@ -86,12 +86,12 @@ export class ConfiguracionService {
   private async crearHorariosDefault(): Promise<HorarioSemanal[]> {
     const defaults: Partial<HorarioSemanal>[] = [
       { diaSemana: 0, activo: false, franjas: [] }, // Domingo cerrado
-      { diaSemana: 1, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }, { horaInicio: "15:00", horaFin: "19:00" }] },
-      { diaSemana: 2, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }, { horaInicio: "15:00", horaFin: "19:00" }] },
-      { diaSemana: 3, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }, { horaInicio: "15:00", horaFin: "19:00" }] },
-      { diaSemana: 4, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }, { horaInicio: "15:00", horaFin: "19:00" }] },
-      { diaSemana: 5, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }, { horaInicio: "15:00", horaFin: "19:00" }] },
-      { diaSemana: 6, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "13:00" }] }, // Sábado solo mañana
+      { diaSemana: 1, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
+      { diaSemana: 2, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
+      { diaSemana: 3, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
+      { diaSemana: 4, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
+      { diaSemana: 5, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
+      { diaSemana: 6, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }] }, // Sábado solo mañana
     ];
 
     const horarios = defaults.map((h) => this.horarioSemanalRepo.create(h));

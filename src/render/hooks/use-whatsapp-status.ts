@@ -4,12 +4,14 @@ import axios from "axios";
 interface WhatsappStatus {
   authenticated: boolean;
   ready: boolean;
+  connected: boolean;
 }
 
 export function useWhatsappStatus() {
   const [status, setStatus] = useState<WhatsappStatus>({
     authenticated: false,
     ready: false,
+    connected: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +22,7 @@ export function useWhatsappStatus() {
       );
       setStatus(response.data);
     } catch {
-      setStatus({ authenticated: false, ready: false });
+      setStatus({ authenticated: false, ready: false, connected: false });
     } finally {
       setLoading(false);
     }
@@ -34,7 +36,7 @@ export function useWhatsappStatus() {
   }, [fetchStatus]);
 
   return {
-    isConnected: status.ready,
+    isConnected: status.connected,
     isAuthenticated: status.authenticated,
     loading,
     refresh: fetchStatus,

@@ -1,5 +1,5 @@
-export type TipoRecordatorio = 'previo' | 'confirmacion' | 'manual';
-export type EstadoRecordatorio = 'programado' | 'enviado' | 'fallido' | 'cancelado';
+export type TipoRecordatorio = 'previo' | 'confirmacion' | 'reintento_1' | 'reintento_2' | 'manual';
+export type EstadoRecordatorio = 'programado' | 'enviado' | 'fallido' | 'sin_respuesta' | 'cancelado';
 
 export interface Recordatorio {
   id: string;
@@ -23,6 +23,8 @@ export interface Recordatorio {
     id: string;
     nombre: string;
     apellido: string;
+    codArea?: string;
+    numero?: string;
   };
 }
 
@@ -40,6 +42,12 @@ export interface ConfiguracionRecordatorio {
   horasAntesPrevio: number;
   recordatorioConfirmacionActivo: boolean;
   horasAntesConfirmacion: number;
+  reintento1Activo: boolean;
+  minutosDespuesReintento1: number;
+  reintento2Activo: boolean;
+  minutosDespuesReintento2: number;
+  autoCancelarSinRespuesta: boolean;
+  minutosEsperaSinRespuesta: number;
   horaEnvioMinima: number;
   horaEnvioMaxima: number;
   maxReintentos: number;

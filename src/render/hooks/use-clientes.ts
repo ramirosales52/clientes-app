@@ -9,11 +9,19 @@ export interface Turno {
   fechaFin: string;
   estado: "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
   notas?: string;
+  costoTotal?: number;
   tratamientos: {
     id: string;
     nombre: string;
     costo: number;
     duracion: number;
+  }[];
+  pagos?: {
+    id: string;
+    monto: number;
+    metodoPago: "efectivo" | "transferencia" | "tarjeta_debito" | "tarjeta_credito" | "mercadopago";
+    fechaPago: string;
+    notas?: string;
   }[];
 }
 
@@ -177,7 +185,7 @@ export function useClientes() {
 
     const turnosRealizados = cliente.turnos.filter((t) => t.estado === "completado");
     const gastoTotal = turnosRealizados.reduce((total, turno) => {
-      return total + turno.tratamientos.reduce((sum, t) => sum + t.costo, 0);
+      return total + (turno.costoTotal ?? 0);
     }, 0);
 
     const tratamientoCount: Record<string, number> = {};

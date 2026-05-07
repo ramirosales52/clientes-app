@@ -71,17 +71,32 @@ function capitalizar(str: string): string {
 
 const estadoConfig: Record<
   EstadoTurno,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  { label: string; className: string }
 > = {
-  pendiente: { label: "Pendiente", variant: "secondary" },
-  confirmado: { label: "Confirmado", variant: "default" },
-  completado: { label: "Completado", variant: "outline" },
-  cancelado: { label: "Cancelado", variant: "destructive" },
-  ausente: { label: "Ausente", variant: "destructive" },
+  pendiente: {
+    label: "Pendiente",
+    className: "border-amber-500/40 bg-amber-500/10 text-amber-700",
+  },
+  confirmado: {
+    label: "Confirmado",
+    className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700",
+  },
+  completado: {
+    label: "Completado",
+    className: "border-sky-500/40 bg-sky-500/10 text-sky-700",
+  },
+  cancelado: {
+    label: "Cancelado",
+    className: "border-rose-500/40 bg-rose-500/10 text-rose-700",
+  },
+  ausente: {
+    label: "Ausente",
+    className: "border-orange-500/40 bg-orange-500/10 text-orange-700",
+  },
 };
 
 function calcularCostoTotal(turno: Turno): number {
-  return turno.tratamientos.reduce((total, t) => total + t.costo, 0);
+  return turno.costoTotal ?? 0;
 }
 
 export default function TurnosTable({ data, onVerDetalle }: Props) {
@@ -243,14 +258,16 @@ export default function TurnosTable({ data, onVerDetalle }: Props) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={config.variant}>{config.label}</Badge>
+                    <Badge variant="outline" className={config.className}>
+                      {config.label}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-medium">
                     {formatCurrency(calcularCostoTotal(turno))}
                   </TableCell>
                   <TableCell>
                     {turno.estado === "completado" && (() => {
-                      const deuda = calcularDeudaTurno(turno.tratamientos, turno.pagos || []);
+                        const deuda = calcularDeudaTurno(turno.tratamientos, turno.pagos || [], turno.costoTotal);
                       if (deuda <= 0) {
                         return (
                           <Badge variant="outline" className="text-green-600 border-green-600">

@@ -86,14 +86,14 @@ function Configuracion() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">Cargando configuración...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full h-screen p-6 gap-4 overflow-auto">
+    <div className="flex flex-col w-full h-full gap-2 overflow-auto p-2 md:p-3">
       <div>
         <h1 className="text-2xl font-semibold">Configuración</h1>
         <p className="text-sm text-muted-foreground">Horarios de atención del salón</p>

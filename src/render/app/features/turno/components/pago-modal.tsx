@@ -30,6 +30,7 @@ import {
 
 interface Turno {
   id: string;
+  costoTotal?: number;
   tratamientos: { id: string; nombre: string; costo: number }[];
   pagos?: { id: string; monto: number }[];
 }
@@ -56,9 +57,9 @@ export function PagoModal({ open, onOpenChange, turno, onSuccess }: Props) {
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("efectivo");
   const [pagoCompleto, setPagoCompleto] = useState(true);
 
-  const costoTotal = turno ? calcularCostoTurno(turno.tratamientos) : 0;
+  const costoTotal = turno ? calcularCostoTurno(turno.tratamientos, turno.costoTotal) : 0;
   const montoPagado = turno ? calcularMontoPagado(turno.pagos || []) : 0;
-  const deuda = turno ? calcularDeudaTurno(turno.tratamientos, turno.pagos || []) : 0;
+  const deuda = turno ? calcularDeudaTurno(turno.tratamientos, turno.pagos || [], turno.costoTotal) : 0;
 
   useEffect(() => {
     if (open) {

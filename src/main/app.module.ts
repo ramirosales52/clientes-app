@@ -38,10 +38,6 @@ import { ConfiguracionModule } from "src/api/configuracion/configuracion.module"
           },
         });
 
-        win.on("closed", () => {
-          win.destroy();
-        });
-
         const URL = isDev
           ? process.env.DS_RENDERER_URL ?? 'http://localhost:5173'
           : `file://${join(app.getAppPath(), "dist/render/index.html")}`;

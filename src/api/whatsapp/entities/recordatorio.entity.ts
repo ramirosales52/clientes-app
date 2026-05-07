@@ -10,15 +10,18 @@ import { Turno } from '../../turnos/entities/turno.entity';
 import { Cliente } from '../../clientes/entities/cliente.entity';
 
 export enum TipoRecordatorio {
-  CONFIRMACION = 'confirmacion', // Solicitud de confirmación (24h antes, espera respuesta del cliente)
-  PREVIO = 'previo',             // Recordatorio final (1h antes, solo si el cliente confirmó)
-  MANUAL = 'manual',             // Enviado manualmente por el usuario
+  CONFIRMACION = 'confirmacion',
+  REINTENTO_1 = 'reintento_1',
+  REINTENTO_2 = 'reintento_2',
+  PREVIO = 'previo',
+  MANUAL = 'manual',
 }
 
 export enum EstadoRecordatorio {
   PROGRAMADO = 'programado',
   ENVIADO = 'enviado',
   FALLIDO = 'fallido',
+  SIN_RESPUESTA = 'sin_respuesta',
   CANCELADO = 'cancelado',
 }
 

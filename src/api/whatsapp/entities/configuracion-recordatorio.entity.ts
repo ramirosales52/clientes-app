@@ -8,33 +8,52 @@ import {
 @Entity()
 export class ConfiguracionRecordatorio {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   // Recordatorio previo (default 24h antes)
   @Column({ type: 'boolean', default: true })
-  recordatorioPrevioActivo: boolean;
+  recordatorioPrevioActivo!: boolean;
 
   @Column({ type: 'int', default: 24 })
-  horasAntesPrevio: number;
+  horasAntesPrevio!: number;
 
   // Recordatorio de confirmación (default 1h antes, solo si está confirmado)
   @Column({ type: 'boolean', default: true })
-  recordatorioConfirmacionActivo: boolean;
+  recordatorioConfirmacionActivo!: boolean;
 
   @Column({ type: 'int', default: 1 })
-  horasAntesConfirmacion: number;
+  horasAntesConfirmacion!: number;
+
+  // Reintentos del flujo de confirmación
+  @Column({ type: 'boolean', default: true })
+  reintento1Activo!: boolean;
+
+  @Column({ type: 'int', default: 60 })
+  minutosDespuesReintento1!: number;
+
+  @Column({ type: 'boolean', default: true })
+  reintento2Activo!: boolean;
+
+  @Column({ type: 'int', default: 240 })
+  minutosDespuesReintento2!: number;
+
+  @Column({ type: 'boolean', default: true })
+  autoCancelarSinRespuesta!: boolean;
+
+  @Column({ type: 'int', default: 30 })
+  minutosEsperaSinRespuesta!: number;
 
   // Horario permitido para enviar mensajes
   @Column({ type: 'int', default: 8 })
-  horaEnvioMinima: number;
+  horaEnvioMinima!: number;
 
   @Column({ type: 'int', default: 21 })
-  horaEnvioMaxima: number;
+  horaEnvioMaxima!: number;
 
   // Reintentos
   @Column({ type: 'int', default: 3 })
-  maxReintentos: number;
+  maxReintentos!: number;
 
   @UpdateDateColumn()
-  actualizadoEn: Date;
+  actualizadoEn!: Date;
 }

@@ -19,6 +19,15 @@ export interface Pago {
   turno?: {
     id: string;
     fechaInicio: string;
+    fechaFin?: string;
+    estado?: string;
+    notas?: string;
+    tratamientos?: {
+      id: string;
+      nombre: string;
+      costo: number;
+      duracion?: number;
+    }[];
   };
   cliente?: {
     id: string;
@@ -35,6 +44,32 @@ export interface CreatePagoData {
   notas?: string;
 }
 
+export interface TurnoConDeuda {
+  turnoId: string;
+  fechaInicio: string;
+  fechaFin: string;
+  estado: string;
+  cliente: {
+    id: string;
+    nombre: string;
+    apellido: string;
+  };
+  tratamientos: {
+    id: string;
+    nombre: string;
+    costo: number;
+  }[];
+  pagos: {
+    id: string;
+    monto: number;
+    metodoPago: MetodoPago;
+    fechaPago: string;
+  }[];
+  costoTotal: number;
+  montoPagado: number;
+  deuda: number;
+}
+
 const API_URL = "http://localhost:3000/pagos";
 
 export const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
@@ -47,6 +82,17 @@ export const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
 
 export function usePagos() {
   const [loading, setLoading] = useState(false);
+
+  const getPagos = useCallback(async (): Promise<Pago[]> => {
+    try {
+      const response = await axios.get<Pago[]>(API_URL);
+      return response.data;
+    } catch (err) {
+      console.error("Error al obtener pagos:", err);
+      toast.error("Error al cargar pagos");
+      return [];
+    }
+  }, []);
 
   const createPago = useCallback(async (data: CreatePagoData): Promise<Pago | null> => {
     try {
@@ -96,6 +142,17 @@ export function usePagos() {
     }
   }, []);
 
+  const getTurnosConDeuda = useCallback(async (): Promise<TurnoConDeuda[]> => {
+    try {
+      const response = await axios.get<TurnoConDeuda[]>(`${API_URL}/deudas/turnos`);
+      return response.data;
+    } catch (err) {
+      console.error("Error al obtener turnos con deuda:", err);
+      toast.error("Error al cargar deudas");
+      return [];
+    }
+  }, []);
+
   const deletePago = useCallback(async (id: string): Promise<boolean> => {
     try {
       await axios.delete(`${API_URL}/${id}`);
@@ -110,17 +167,19 @@ export function usePagos() {
 
   return {
     loading,
+    getPagos,
     createPago,
     getPagosByTurno,
     getPagosByCliente,
     getDeudaCliente,
+    getTurnosConDeuda,
     deletePago,
   };
 }
 
 // Helpers para cálculos de pagos
-export function calcularCostoTurno(tratamientos: { costo: number }[]): number {
-  return tratamientos.reduce((sum, t) => sum + t.costo, 0);
+export function calcularCostoTurno(_tratamientos: { costo: number }[], costoTotal?: number): number {
+  return costoTotal ?? 0;
 }
 
 export function calcularMontoPagado(pagos: { monto: number }[]): number {
@@ -129,14 +188,16 @@ export function calcularMontoPagado(pagos: { monto: number }[]): number {
 
 export function calcularDeudaTurno(
   tratamientos: { costo: number }[],
-  pagos: { monto: number }[]
+  pagos: { monto: number }[],
+  costoTotal?: number
 ): number {
-  return calcularCostoTurno(tratamientos) - calcularMontoPagado(pagos);
+  return calcularCostoTurno(tratamientos, costoTotal) - calcularMontoPagado(pagos);
 }
 
 export function estaPagado(
   tratamientos: { costo: number }[],
-  pagos: { monto: number }[]
+  pagos: { monto: number }[],
+  costoTotal?: number
 ): boolean {
-  return calcularDeudaTurno(tratamientos, pagos) <= 0;
+  return calcularDeudaTurno(tratamientos, pagos, costoTotal) <= 0;
 }

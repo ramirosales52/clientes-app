@@ -3,10 +3,9 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@render/components/ui/card";
 import { Input } from "@render/components/ui/input";
-import { ClipboardList, RefreshCw, Search, Sparkles } from "lucide-react";
+import { RefreshCw, Search, Sparkles, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import TratamientosModal, {
   type TratamientoFormData,
@@ -88,9 +87,12 @@ function Tratamientos() {
   const hasNoResults = filteredTratamientos.length === 0 && !isEmpty;
 
   return (
-    <div className="flex flex-col h-screen w-full p-4 space-y-4">
+    <div className="flex flex-col h-full w-full gap-2 p-2 md:p-3">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">Tratamientos</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Tratamientos</h1>
+          <p className="text-sm text-muted-foreground">Servicios y precios del salon</p>
+        </div>
         {!isEmpty && (
           <Button onClick={handleCreate}>
             <Sparkles className="h-4 w-4" />
@@ -99,37 +101,34 @@ function Tratamientos() {
         )}
       </div>
 
-      <Card className="flex flex-col flex-1">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardList size={22} />
-              <span>Lista de Tratamientos</span>
-            </div>
-            {!isEmpty && (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar tratamiento..."
-                    className="w-72 pl-9"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => fetchTratamientos()}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+      <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <CardHeader className="pb-3">
+          {!isEmpty && (
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar tratamiento..."
+                  className="w-56 pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-            )}
-          </CardTitle>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => fetchTratamientos()}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <div className="ml-auto text-sm text-muted-foreground">
+                {filteredTratamientos.length} tratamiento{filteredTratamientos.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+          )}
         </CardHeader>
 
-        <CardContent className="flex-1 max-h-[83vh]">
+        <CardContent className="flex-1 overflow-auto">
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (

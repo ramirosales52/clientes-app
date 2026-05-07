@@ -6,8 +6,8 @@ export class NotificationsController {
   constructor(private readonly whatsappService: WhatsappService) { }
 
   @Post('iniciar-sesion')
-  iniciarSesion() {
-    this.whatsappService.iniciarSesion();
+  async iniciarSesion() {
+    await this.whatsappService.iniciarSesion();
     return { ok: true };
   }
 
@@ -21,6 +21,11 @@ export class NotificationsController {
   async cerrarSesion() {
     await this.whatsappService.cerrarSesion();
     return { success: true, message: 'Sesión cerrada correctamente' };
+  }
+
+  @Post('cancelar-conexion')
+  async cancelarConexion() {
+    return this.whatsappService.cancelarConexionPendiente();
   }
 
   @Get('status')
