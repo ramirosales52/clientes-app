@@ -78,23 +78,44 @@ export class ConfiguracionService {
     // Si no hay horarios, crear los defaults
     if (horarios.length === 0) {
       horarios = await this.crearHorariosDefault();
+      return horarios;
     }
 
+    const defaults = this.getHorariosDefault();
+    const horariosPorDia = new Map(horarios.map((horario) => [horario.diaSemana, horario]));
+    const horariosAGuardar: HorarioSemanal[] = [];
+
+    for (const defaultHorario of defaults) {
+      const diaSemana = defaultHorario.diaSemana!;
+      const existing = horariosPorDia.get(diaSemana);
+
+      if (existing) {
+        existing.activo = defaultHorario.activo ?? existing.activo;
+        existing.franjas = (defaultHorario.franjas as Franja[]) ?? existing.franjas;
+        horariosAGuardar.push(existing);
+      } else {
+        horariosAGuardar.push(this.horarioSemanalRepo.create(defaultHorario));
+      }
+    }
+
+    horarios = await this.horarioSemanalRepo.save(horariosAGuardar);
     return horarios;
   }
 
-  private async crearHorariosDefault(): Promise<HorarioSemanal[]> {
-    const defaults: Partial<HorarioSemanal>[] = [
+  private getHorariosDefault(): Partial<HorarioSemanal>[] {
+    return [
       { diaSemana: 0, activo: false, franjas: [] }, // Domingo cerrado
       { diaSemana: 1, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
       { diaSemana: 2, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
       { diaSemana: 3, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
       { diaSemana: 4, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
       { diaSemana: 5, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }] },
-      { diaSemana: 6, activo: true, franjas: [{ horaInicio: "08:00", horaFin: "12:00" }] }, // Sábado solo mañana
+      { diaSemana: 6, activo: true, franjas: [{ horaInicio: "09:00", horaFin: "12:00" }] }, // Sábado solo mañana
     ];
+  }
 
-    const horarios = defaults.map((h) => this.horarioSemanalRepo.create(h));
+  private async crearHorariosDefault(): Promise<HorarioSemanal[]> {
+    const horarios = this.getHorariosDefault().map((h) => this.horarioSemanalRepo.create(h));
     return this.horarioSemanalRepo.save(horarios);
   }
 

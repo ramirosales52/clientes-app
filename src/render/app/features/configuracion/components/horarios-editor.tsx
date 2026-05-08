@@ -42,7 +42,7 @@ function HorariosEditor({ horarios, onSave }: HorariosEditorProps) {
         // Si se activa y no tiene franjas, agregar una por defecto
         const franjas = activo && h.franjas.length === 0
           ? diaSemana === 6
-            ? [{ horaInicio: "08:00", horaFin: "12:00" }]
+            ? [{ horaInicio: "09:00", horaFin: "12:00" }]
             : [{ horaInicio: "08:00", horaFin: "12:00" }, { horaInicio: "15:00", horaFin: "20:00" }]
           : h.franjas;
         return { ...h, activo, franjas };
