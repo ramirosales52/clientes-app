@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, LessThan, MoreThan, Repository } from 'typeorm';
+import { Between, In, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { BrowserWindow } from 'electron';
 import { Turno, EstadoTurno } from './entities/turno.entity';
 import { HistorialEstadoTurno } from './entities/historial-estado.entity';
@@ -81,6 +81,21 @@ export class TurnoService {
     return ids.map((id) => encontrados.find((tratamiento) => tratamiento.id === id)!);
   }
 
+  private async turnoSuperpuesto(
+    fechaInicio: Date,
+    fechaFin: Date,
+    excluirTurnoId?: string,
+  ): Promise<Turno | null> {
+    return this.turnoRepository.findOne({
+      where: {
+        ...(excluirTurnoId ? { id: Not(excluirTurnoId) } : {}),
+        fechaInicio: LessThan(fechaFin),
+        fechaFin: MoreThan(fechaInicio),
+        estado: In(['pendiente', 'confirmado', 'sin_confirmar']),
+      },
+    });
+  }
+
   private congelarTratamientosTurno(turno: Turno): Turno {
     if (turno.tratamientosSnapshot?.length) {
       turno.tratamientos = turno.tratamientosSnapshot.map((tratamiento) => ({
@@ -123,15 +138,7 @@ export class TurnoService {
     const fechaInicio = new Date(createTurnoDto.fechaInicio);
     const fechaFin = new Date(createTurnoDto.fechaFin);
 
-    const overlapping = await this.turnoRepository.findOne({
-      where: [
-        {
-          fechaInicio: LessThan(new Date(fechaFin)),
-          fechaFin: MoreThan(new Date(fechaInicio)),
-          estado: In(['pendiente', 'confirmado', 'sin_confirmar']),
-        },
-      ],
-    });
+    const overlapping = await this.turnoSuperpuesto(fechaInicio, fechaFin);
 
     if (overlapping) {
       throw new BadRequestException('El turno se superpone con otro ya existente');
@@ -363,6 +370,26 @@ export class TurnoService {
     if (!turno) throw new NotFoundException('Turno no encontrado');
 
     const estadoAnterior = turno.estado;
+    const fechaInicioAnterior = turno.fechaInicio;
+    const fechaFinAnterior = turno.fechaFin;
+    const tratamientosAnterioresIds = turno.tratamientos.map((tratamiento) => tratamiento.id);
+
+    const fechaInicioNueva = dto.fechaInicio ? new Date(dto.fechaInicio) : turno.fechaInicio;
+    const fechaFinNueva = dto.fechaFin ? new Date(dto.fechaFin) : turno.fechaFin;
+    const fechaCambiada =
+      fechaInicioNueva.getTime() !== fechaInicioAnterior.getTime() ||
+      fechaFinNueva.getTime() !== fechaFinAnterior.getTime();
+    const tratamientosCambiados =
+      Array.isArray(dto.tratamientosIds) &&
+      (dto.tratamientosIds.length !== tratamientosAnterioresIds.length ||
+        dto.tratamientosIds.some((id, index) => id !== tratamientosAnterioresIds[index]));
+
+    if (fechaCambiada) {
+      const overlapping = await this.turnoSuperpuesto(fechaInicioNueva, fechaFinNueva, id);
+      if (overlapping) {
+        throw new BadRequestException('El turno se superpone con otro ya existente');
+      }
+    }
 
     if (dto.clienteId) {
       const cliente = await this.clienteRepository.findOneBy({
@@ -372,20 +399,46 @@ export class TurnoService {
       turno.cliente = cliente;
     }
 
-    Object.assign(turno, {
-      ...dto,
-      fechaInicio: dto.fechaInicio ? new Date(dto.fechaInicio) : turno.fechaInicio,
-      fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : turno.fechaFin,
-    });
+    turno.fechaInicio = fechaInicioNueva;
+    turno.fechaFin = fechaFinNueva;
+
+    if (dto.notas !== undefined) {
+      turno.notas = dto.notas;
+    }
+
+    if (dto.estado) {
+      turno.estado = dto.estado;
+    }
 
     if (dto.tratamientosIds) {
       const tratamientos = await this.cargarTratamientosHistoricos(dto.tratamientosIds);
 
       turno.tratamientos = tratamientos;
+    }
+
+    if (fechaCambiada || tratamientosCambiados) {
+      turno.tratamientosSnapshot = turno.tratamientos.map((tratamiento) => ({
+        id: tratamiento.id,
+        nombre: tratamiento.nombre,
+        costo: calcularCostoHistoricoTratamiento(tratamiento, turno.fechaInicio),
+        duracion: tratamiento.duracion,
+      }));
       turno.costoTotal = this.calcularCostoTotalTurno(turno);
     }
 
     await this.turnoRepository.save(turno);
+
+    const turnoCompleto = await this.findOne(id);
+
+    if (fechaCambiada || tratamientosCambiados) {
+      await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
+
+      if (turnoCompleto.estado === EstadoTurno.CONFIRMADO) {
+        await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
+      } else if (turnoCompleto.estado === EstadoTurno.PENDIENTE || turnoCompleto.estado === EstadoTurno.SIN_CONFIRMAR) {
+        await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+      }
+    }
 
     // Registrar cambio de estado si cambió
     if (dto.estado && dto.estado !== estadoAnterior) {
@@ -398,7 +451,7 @@ export class TurnoService {
 
       // Si se confirma el turno, crear el recordatorio previo (1h antes)
       if (dto.estado === EstadoTurno.CONFIRMADO) {
-        const turnoCompleto = await this.findOne(id);
+        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
         await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
       }
 
@@ -407,15 +460,14 @@ export class TurnoService {
       }
     }
 
-    if (!dto.estado) {
-      const turnoCompleto = await this.findOne(id);
+    if (!dto.estado && !fechaCambiada && !tratamientosCambiados) {
       await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
       await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
     }
 
     this.notificarTurnosActualizados();
 
-    return this.findOne(id);
+    return turnoCompleto;
   }
 
   async remove(id: string): Promise<void> {
