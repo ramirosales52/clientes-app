@@ -24,6 +24,7 @@ interface TratamientosSelectorProps {
   tratamientos: Tratamiento[];
   seleccionados: string[];
   onToggle: (id: string) => void;
+  onAddTratamiento: () => void;
 }
 
 function formatCurrency(value: number): string {
@@ -41,6 +42,7 @@ export function TratamientosSelector({
   tratamientos,
   seleccionados,
   onToggle,
+  onAddTratamiento,
 }: TratamientosSelectorProps) {
   const cantidad = seleccionados.length;
   const duracionTotal = tratamientos
@@ -119,6 +121,9 @@ export function TratamientosSelector({
         )}
 
         <DialogFooter>
+          <Button type="button" variant="outline" onClick={onAddTratamiento}>
+            Agregar tratamiento
+          </Button>
           <DialogClose asChild>
             <Button>Confirmar</Button>
           </DialogClose>

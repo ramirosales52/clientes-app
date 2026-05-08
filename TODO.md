@@ -2,9 +2,9 @@
 
 ## Prioridad critica
 
-- [ ] Activar `ValidationPipe` global en Nest con `transform` y `whitelist`.
-- [ ] Unificar estados de turno inconsistentes entre backend, hooks y UI.
-- [ ] Corregir el selector de clientes al crear turnos para no depender solo de la primera pagina.
+- [x] Activar `ValidationPipe` global en Nest con `transform` y `whitelist`.
+- [x] Unificar estados de turno inconsistentes entre backend, hooks y UI.
+- [x] Corregir el selector de clientes al crear turnos para no depender solo de la primera pagina.
 - [ ] Completar la edicion y reagendado de turnos en el backend.
 - [x] Permitir cambio real de tratamientos en `TurnoService.update()`.
 - [ ] Revalidar disponibilidad al editar fecha y hora de un turno.

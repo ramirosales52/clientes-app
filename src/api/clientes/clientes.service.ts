@@ -32,9 +32,9 @@ export class ClienteService {
   async create(dto: CreateClienteDto): Promise<Cliente> {
     validarTelefonoCompleto(dto.codArea, dto.numero);
 
-    // Check if number already exists
+    // Check if the full phone number already exists
     const existing = await this.clienteRepository.findOne({
-      where: { numero: dto.numero },
+      where: { codArea: dto.codArea, numero: dto.numero },
     });
     if (existing) {
       throw new BadRequestException('Ya existe un cliente con ese número de teléfono');

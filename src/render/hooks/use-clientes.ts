@@ -7,7 +7,7 @@ export interface Turno {
   id: string;
   fechaInicio: string;
   fechaFin: string;
-  estado: "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
+  estado: "pendiente" | "confirmado" | "sin_confirmar" | "completado" | "cancelado" | "ausente";
   notas?: string;
   costoTotal?: number;
   tratamientos: {
@@ -111,7 +111,6 @@ export function useClientes() {
       return response.data;
     } catch (err) {
       console.error("Error al cargar cliente:", err);
-      toast.error("Error al cargar cliente");
       return null;
     }
   }, []);
@@ -128,7 +127,6 @@ export function useClientes() {
       return response.data;
     } catch (err) {
       console.error("Error al crear cliente:", err);
-      toast.error("Error al crear cliente");
       throw err;
     }
   }, []);
@@ -145,7 +143,6 @@ export function useClientes() {
       return response.data;
     } catch (err) {
       console.error("Error al actualizar cliente:", err);
-      toast.error("Error al actualizar cliente");
       throw err;
     }
   }, []);
@@ -157,7 +154,6 @@ export function useClientes() {
       toast.success("Cliente eliminado");
     } catch (err) {
       console.error("Error al eliminar cliente:", err);
-      toast.error("Error al eliminar cliente");
       throw err;
     }
   }, []);

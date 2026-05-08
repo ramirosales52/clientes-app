@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { app } from 'electron';
 
@@ -30,6 +31,7 @@ async function bootstrap() {
     await electronAppInit();
 
     const nestApp = await NestFactory.create(AppModule);
+    nestApp.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
     nestApp.enableCors(); // Enable CORS if needed
     await nestApp.listen(3000);
   } catch (error) {

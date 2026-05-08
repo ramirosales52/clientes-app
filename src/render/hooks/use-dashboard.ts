@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import dayjs from "dayjs";
 
-type EstadoTurno = "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
+type EstadoTurno = "pendiente" | "confirmado" | "sin_confirmar" | "completado" | "cancelado" | "ausente";
 
 type Franja = {
   horaInicio: string;
@@ -144,7 +144,7 @@ export function useDashboard() {
         })
         .sort((a, b) => dayjs(a.fechaInicio).valueOf() - dayjs(b.fechaInicio).valueOf());
 
-      const pendientes = turnos.filter((turno) => turno.estado === "pendiente").length;
+      const pendientes = turnos.filter((turno) => turno.estado === "pendiente" || turno.estado === "sin_confirmar").length;
 
       const ingresosMes = turnos
         .filter((turno) => {

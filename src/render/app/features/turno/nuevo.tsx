@@ -3,24 +3,12 @@ import { Button } from "@render/components/ui/button";
 import { Calendar } from "@render/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@render/components/ui/card";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@render/components/ui/command";
-import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
 } from "@render/components/ui/form";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@render/components/ui/popover";
 import { Separator } from "@render/components/ui/separator";
 import { Badge } from "@render/components/ui/badge";
 import { cn } from "@render/lib/utils";
@@ -31,7 +19,6 @@ import "dayjs/locale/es";
 import {
   ArrowLeft,
   CalendarDays,
-  Check,
   ChevronRight,
   ChevronsUpDown,
   Clock,
@@ -47,6 +34,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ClientesModal } from "../clientes/components/clientes-modal";
+import TratamientosModal from "../tratamientos/components/tratamientos-modal";
+import { ClientesSelector } from "./components/clientes-selector";
 import { TratamientosSelector } from "./components/tratamientos-selector";
 
 dayjs.locale("es");
@@ -184,6 +174,8 @@ function NuevoTurno() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
   const [openClientes, setOpenClientes] = useState(false);
   const [openTratamientos, setOpenTratamientos] = useState(false);
+  const [openClienteModal, setOpenClienteModal] = useState(false);
+  const [openTratamientoModal, setOpenTratamientoModal] = useState(false);
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([]);
   const [horariosDia, setHorariosDia] = useState<HorariosDia | null>(null);
   const [fechasCerradas, setFechasCerradas] = useState<Date[]>([]);
@@ -223,8 +215,21 @@ function NuevoTurno() {
 
   const fetchClientes = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:3000/clientes");
-      setClientes(response.data.data);
+      const allClientes: Cliente[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await axios.get("http://localhost:3000/clientes", {
+          params: { page, limit: 100 },
+        });
+
+        allClientes.push(...(response.data.data || []));
+        hasMore = Boolean(response.data.hasMore);
+        page += 1;
+      }
+
+      setClientes(allClientes);
     } catch (error) {
       console.error("Error fetching clientes:", error);
     }
@@ -448,66 +453,28 @@ function NuevoTurno() {
                     Cliente
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+              <CardContent>
                   <FormField
                     control={form.control}
                     name="clienteId"
                     render={({ field, fieldState }) => (
                       <FormItem>
                         <FormControl>
-                          <Popover open={openClientes} onOpenChange={setOpenClientes}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  "w-full justify-between font-normal",
-                                  !field.value && "text-muted-foreground",
-                                  fieldState.invalid && "border-destructive"
-                                )}
-                              >
-                                {clienteSeleccionado
-                                  ? `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`
-                                  : "Seleccionar cliente"}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="p-0 w-80">
-                              <Command>
-                                <CommandInput placeholder="Buscar cliente..." />
-                                <CommandEmpty>No se encontró ningún cliente.</CommandEmpty>
-                                <CommandGroup className="max-h-64 overflow-auto">
-                                  {clientes.map((cliente) => (
-                                    <CommandItem
-                                      key={cliente.id}
-                                      onSelect={() => {
-                                        field.onChange(cliente.id);
-                                        setOpenClientes(false);
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      <div className="flex items-center gap-3 w-full">
-                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary shrink-0">
-                                          {cliente.nombre[0]}{cliente.apellido[0]}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium truncate">
-                                            {cliente.nombre} {cliente.apellido}
-                                          </p>
-                                          <p className="text-xs text-muted-foreground">
-                                            {formatPhone(cliente.codArea, cliente.numero)}
-                                          </p>
-                                        </div>
-                                        {field.value === cliente.id && (
-                                          <Check className="h-4 w-4 text-primary" />
-                                        )}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-between font-normal",
+                              !field.value && "text-muted-foreground",
+                              fieldState.invalid && "border-destructive"
+                            )}
+                            onClick={() => setOpenClientes(true)}
+                          >
+                            {clienteSeleccionado
+                              ? `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`
+                              : "Seleccionar cliente"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -836,6 +803,32 @@ function NuevoTurno() {
         tratamientos={tratamientos}
         seleccionados={tratamientosSeleccionados}
         onToggle={toggleTratamiento}
+        onAddTratamiento={() => {
+          setOpenTratamientos(false);
+          setOpenTratamientoModal(true);
+        }}
+      />
+
+      <ClientesSelector
+        open={openClientes}
+        onOpenChange={setOpenClientes}
+        clientes={clientes}
+        selectedId={clienteId}
+        onSelect={(id) => form.setValue("clienteId", id, { shouldValidate: true })}
+        onAddCliente={() => {
+          setOpenClientes(false);
+          setOpenClienteModal(true);
+        }}
+      />
+
+      <ClientesModal
+        open={openClienteModal}
+        onOpenChange={setOpenClienteModal}
+      />
+
+      <TratamientosModal
+        open={openTratamientoModal}
+        onOpenChange={setOpenTratamientoModal}
       />
     </div>
   );

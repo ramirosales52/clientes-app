@@ -34,7 +34,7 @@ export class Cliente {
   @Matches(/^\d{2,5}$/, { message: 'Código de área inválido' })
   codArea: string;
 
-  @Column({ unique: true })
+  @Column()
   @IsString()
   @Matches(/^\d{6,8}$/, { message: 'Número inválido' })
   numero: string;

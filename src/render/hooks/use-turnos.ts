@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 
-export type EstadoTurno = "pendiente" | "confirmado" | "completado" | "cancelado" | "ausente";
+export type EstadoTurno = "pendiente" | "confirmado" | "sin_confirmar" | "completado" | "cancelado" | "ausente";
 
 export interface TurnoTratamiento {
   id: string;

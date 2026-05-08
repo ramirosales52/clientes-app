@@ -35,6 +35,31 @@ import { dataEvents, EVENTS } from "@render/lib/events";
 import { useEffect, useState } from "react";
 import type { Cliente, UpdateClienteData } from "@render/hooks/use-clientes";
 
+function getClienteErrorMessage(err: unknown, isEditMode: boolean) {
+  if (axios.isAxiosError(err)) {
+    const responseMessage =
+      typeof err.response?.data?.message === "string"
+        ? err.response.data.message
+        : Array.isArray(err.response?.data?.message)
+          ? err.response.data.message[0]
+          : null;
+
+    if (responseMessage === "Ya existe un cliente con ese número de teléfono") {
+      return "Ese teléfono ya existe.";
+    }
+
+    if (responseMessage === "Número de teléfono inválido") {
+      return "Teléfono inválido.";
+    }
+
+    if (responseMessage) return responseMessage;
+  }
+
+  return isEditMode
+    ? "No se pudo actualizar."
+    : "No se pudo crear.";
+}
+
 const clientSchema = z
   .object({
     nombre: z.string().min(1, "El nombre es obligatorio"),
@@ -76,6 +101,7 @@ export function ClientesModal({
   const isControlled = controlledOpen !== undefined;
   const isEditMode = !!cliente;
   const [internalOpen, setInternalOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
@@ -111,6 +137,7 @@ export function ClientesModal({
 
   const onSubmit = async (data: ClientFormValues) => {
     try {
+      setSubmitError(null);
       if (externalOnSubmit) {
         await externalOnSubmit(data);
       } else {
@@ -128,13 +155,14 @@ export function ClientesModal({
       }
     } catch (err) {
       console.error("Error guardando el cliente:", err);
-      toast.error(isEditMode ? "Error al actualizar cliente" : "Error al crear cliente");
+      setSubmitError(getClienteErrorMessage(err, isEditMode));
     }
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       form.reset();
+      setSubmitError(null);
     }
     controlledOnOpenChange?.(isOpen);
   };
@@ -156,9 +184,7 @@ export function ClientesModal({
           )}
         </DialogTitle>
         <DialogDescription>
-          {isEditMode
-            ? "Modificá los datos del cliente."
-            : "Completá los siguientes campos para registrar un nuevo cliente."}
+          {isEditMode ? "Editá los datos del cliente." : "Completá los datos del cliente."}
         </DialogDescription>
         <Separator />
       </DialogHeader>
@@ -253,6 +279,12 @@ export function ClientesModal({
               </div>
             </div>
 
+            {submitError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {submitError}
+              </div>
+            ) : null}
+
             <FormField
               control={form.control}
               name="notas"
@@ -305,6 +337,7 @@ export function ClientesModal({
         setInternalOpen(isOpen);
         if (!isOpen) {
           form.reset();
+          setSubmitError(null);
         }
       }}
     >
