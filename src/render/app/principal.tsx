@@ -19,8 +19,8 @@ import { AlertasPanel } from "./components/alertas-panel";
 import { useDashboard, type ProximoTurno } from "@render/hooks/use-dashboard";
 import { TurnoDetailSheet } from "./features/turno/components/turno-detail-sheet";
 import type { Turno } from "@render/hooks/use-turnos";
-import axios from "axios";
 import { toast } from "sonner";
+import { api } from "@render/lib/api";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 
@@ -148,7 +148,7 @@ function Principal() {
   const handleVerDetalle = useCallback(async (id: string) => {
     try {
       setLoadingTurno(true);
-      const response = await axios.get<Turno>(`http://localhost:3000/turnos/${id}`);
+      const response = await api.get<Turno>(`/turnos/${id}`);
       setTurnoSeleccionado(response.data);
       setSheetOpen(true);
     } catch (err) {
@@ -163,7 +163,7 @@ function Principal() {
     async (estado: string) => {
       if (!turnoSeleccionado) return;
       try {
-        await axios.patch(`http://localhost:3000/turnos/${turnoSeleccionado.id}`, { estado });
+        await api.patch(`/turnos/${turnoSeleccionado.id}`, { estado });
         toast.success(
           `Turno ${
             estado === "confirmado"
@@ -189,7 +189,7 @@ function Principal() {
   const handleDelete = useCallback(async () => {
     if (!turnoSeleccionado) return;
     try {
-      await axios.delete(`http://localhost:3000/turnos/${turnoSeleccionado.id}`);
+      await api.delete(`/turnos/${turnoSeleccionado.id}`);
       toast.success("Turno eliminado");
       setSheetOpen(false);
       setTurnoSeleccionado(null);

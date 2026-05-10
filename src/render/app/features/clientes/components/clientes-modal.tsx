@@ -32,6 +32,7 @@ import { Textarea } from "@render/components/ui/textarea";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { cn } from "@render/lib/utils";
 import { dataEvents, EVENTS } from "@render/lib/events";
+import { api } from "@render/lib/api";
 import { useEffect, useState } from "react";
 import type { Cliente, UpdateClienteData } from "@render/hooks/use-clientes";
 
@@ -141,7 +142,7 @@ export function ClientesModal({
       if (externalOnSubmit) {
         await externalOnSubmit(data);
       } else {
-        await axios.post("http://localhost:3000/clientes", {
+        await api.post("/clientes", {
           nombre: data.nombre,
           apellido: data.apellido,
           codArea: data.codArea,

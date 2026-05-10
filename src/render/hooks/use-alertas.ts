@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import dayjs from "dayjs";
 import type { TurnoBasico } from "@render/hooks/use-dashboard";
 import type { Recordatorio } from "@render/app/features/whatsapp/types";
+import { api } from "@render/lib/api";
 
 export type TipoAlerta = "error" | "warning" | "info" | "success";
 
@@ -122,9 +122,9 @@ export function useAlertas() {
     try {
       setLoading(true);
       const [turnosRes, recordatoriosRes, whatsappRes] = await Promise.all([
-        axios.get<TurnoBasico[]>("http://localhost:3000/turnos"),
-        axios.get<Recordatorio[]>("http://localhost:3000/recordatorios"),
-        axios.get<WhatsappStatus>("http://localhost:3000/whatsapp/status"),
+        api.get<TurnoBasico[]>("/turnos"),
+        api.get<Recordatorio[]>("/recordatorios"),
+        api.get<WhatsappStatus>("/whatsapp/status"),
       ]);
 
       setAlertas(buildAlertas(turnosRes.data, recordatoriosRes.data, whatsappRes.data));

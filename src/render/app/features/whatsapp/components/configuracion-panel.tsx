@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import {
   Check,
@@ -24,6 +23,7 @@ import { Switch } from "@render/components/ui/switch";
 import WhatsappLogo from "@render/assets/WhatsApp_Symbol_Alternative_0.svg";
 import { useConfiguracion } from "../hooks";
 import type { ConfiguracionRecordatorio } from "../types";
+import { api } from "@render/lib/api";
 
 function Step1() {
   return <StepperTitle className="flex gap-1">Abrí <span className="inline-flex gap-1">WhatsApp <img src={WhatsappLogo} className="relative -top-0.5 h-5 w-5" alt="WhatsApp" /></span> en tu celular</StepperTitle>;
@@ -74,13 +74,13 @@ export function ConfiguracionPanel({
     setQrUrl(null);
     setStartingConnection(true);
     try {
-      await axios.post("http://localhost:3000/whatsapp/iniciar-sesion");
+      await api.post("/whatsapp/iniciar-sesion");
       const fetchQr = async () => {
-        try { const res = await axios.get("http://localhost:3000/whatsapp/qr"); if (res.data.qr) setQrUrl(res.data.qr); } catch {}
+        try { const res = await api.get("/whatsapp/qr"); if (res.data.qr) setQrUrl(res.data.qr); } catch {}
       };
       const pollStatus = async () => {
         try {
-          const res = await axios.get("http://localhost:3000/whatsapp/status");
+          const res = await api.get("/whatsapp/status");
           if (res.data.connected) {
             connectedRef.current = true;
             setStatus("listo");
@@ -113,7 +113,7 @@ export function ConfiguracionPanel({
       setQrUrl(null);
       if (!connectedRef.current) {
         try {
-          await axios.post("http://localhost:3000/whatsapp/cancelar-conexion");
+          await api.post("/whatsapp/cancelar-conexion");
           setStatus("desconectado");
           setConnected(false);
         } catch (error) {
@@ -126,7 +126,7 @@ export function ConfiguracionPanel({
   const cerrarSesion = async () => {
     setLoadingConnection(true);
     try {
-      await axios.post("http://localhost:3000/whatsapp/cerrar-sesion");
+      await api.post("/whatsapp/cerrar-sesion");
       setStatus("desconectado");
       setConnected(false);
       toast.success("WhatsApp desconectado");
@@ -143,7 +143,7 @@ export function ConfiguracionPanel({
     if (!phone) return;
     setSendingTest(true);
     try {
-      await axios.post("http://localhost:3000/whatsapp/send", { phone, message: "Mensaje de prueba desde Clientas" });
+      await api.post("/whatsapp/send", { phone, message: "Mensaje de prueba desde Clientas" });
       toast.success("Mensaje de prueba enviado");
     } catch (error) {
       console.error(error);

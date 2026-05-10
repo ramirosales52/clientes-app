@@ -106,6 +106,23 @@ export class TurnoService {
     return ESTADOS_OCUPAN_HORARIO.has(estado);
   }
 
+  private estadoRequiereRecordatorios(estado: EstadoTurno): boolean {
+    return estado === EstadoTurno.PENDIENTE || estado === EstadoTurno.CONFIRMADO;
+  }
+
+  private async sincronizarRecordatoriosTurno(turno: Turno): Promise<void> {
+    await this.recordatorioService.cancelarRecordatoriosPorTurno(turno.id);
+
+    if (turno.estado === EstadoTurno.CONFIRMADO) {
+      await this.recordatorioService.crearRecordatorioPrevio(turno);
+      return;
+    }
+
+    if (this.estadoRequiereRecordatorios(turno.estado)) {
+      await this.recordatorioService.crearRecordatoriosParaTurno(turno);
+    }
+  }
+
   private async validarDisponibilidadTurno(
     fechaInicio: Date,
     fechaFin: Date,
@@ -198,7 +215,11 @@ export class TurnoService {
     const turnoCompleto = await this.findOne(saved.id);
 
     // Crear recordatorios automáticos de WhatsApp
-    await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+    if (turnoCompleto.estado === EstadoTurno.CONFIRMADO) {
+      await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
+    } else {
+      await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+    }
     this.notificarTurnosActualizados();
 
     return turnoCompleto;
@@ -463,16 +484,7 @@ export class TurnoService {
     }
 
     if (requiereSincronizarRecordatorios) {
-      await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
-
-      if (turnoCompleto.estado === EstadoTurno.CONFIRMADO) {
-        await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
-      } else if (this.estadoOcupaHorario(turnoCompleto.estado)) {
-        await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
-      }
-    } else if (!estadoCambiado) {
-      await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
-      await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
+      await this.sincronizarRecordatoriosTurno(turnoCompleto);
     }
 
     this.notificarTurnosActualizados();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
+import { api } from "@render/lib/api";
 
 export type EstadoTurno = "pendiente" | "confirmado" | "sin_confirmar" | "completado" | "cancelado" | "ausente";
 
@@ -74,7 +74,7 @@ export interface UpdateTurnoData {
   tratamientosIds?: string[];
 }
 
-const API_URL = "http://localhost:3000/turnos";
+const API_URL = "/turnos";
 
 export function useTurnos() {
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -86,7 +86,7 @@ export function useTurnos() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get<Turno[]>(API_URL);
+      const response = await api.get<Turno[]>(API_URL);
       setTurnos(response.data);
     } catch (err) {
       console.error("Error al cargar turnos:", err);
@@ -99,7 +99,7 @@ export function useTurnos() {
 
   const fetchTurno = useCallback(async (id: string): Promise<Turno | null> => {
     try {
-      const response = await axios.get<Turno>(`${API_URL}/${id}`);
+      const response = await api.get<Turno>(`${API_URL}/${id}`);
       return response.data;
     } catch (err) {
       console.error("Error al cargar turno:", err);
@@ -110,7 +110,7 @@ export function useTurnos() {
 
   const updateTurno = useCallback(async (id: string, data: UpdateTurnoData) => {
     try {
-      const response = await axios.patch<Turno>(`${API_URL}/${id}`, data);
+      const response = await api.patch<Turno>(`${API_URL}/${id}`, data);
       setTurnos((prev) =>
         prev.map((t) => (t.id === id ? response.data : t))
       );
@@ -124,7 +124,7 @@ export function useTurnos() {
 
   const deleteTurno = useCallback(async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await api.delete(`${API_URL}/${id}`);
       setTurnos((prev) => prev.filter((t) => t.id !== id));
       toast.success("Turno eliminado");
     } catch (err) {

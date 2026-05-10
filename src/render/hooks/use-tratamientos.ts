@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { dataEvents, EVENTS } from "@render/lib/events";
+import { api } from "@render/lib/api";
 
 export interface PrecioHistorial {
   id: string;
@@ -31,7 +31,7 @@ export interface UpdateTratamientoData {
   duracion?: number;
 }
 
-const API_URL = "http://localhost:3000/tratamientos";
+const API_URL = "/tratamientos";
 
 export function useTratamientos() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
@@ -42,7 +42,7 @@ export function useTratamientos() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get<Tratamiento[]>(API_URL);
+      const response = await api.get<Tratamiento[]>(API_URL);
       setTratamientos(response.data);
     } catch (err) {
       console.error("Error al cargar tratamientos:", err);
@@ -55,7 +55,7 @@ export function useTratamientos() {
 
   const createTratamiento = useCallback(async (data: CreateTratamientoData) => {
     try {
-      const response = await axios.post<Tratamiento>(API_URL, data);
+      const response = await api.post<Tratamiento>(API_URL, data);
       setTratamientos((prev) => [...prev, response.data]);
       toast.success("Tratamiento creado");
       return response.data;
@@ -69,9 +69,9 @@ export function useTratamientos() {
   const updateTratamiento = useCallback(
     async (id: string, data: UpdateTratamientoData) => {
       try {
-        await axios.put<Tratamiento>(`${API_URL}/${id}`, data);
+        await api.put<Tratamiento>(`${API_URL}/${id}`, data);
         // Refetch para obtener historial actualizado
-        const response = await axios.get<Tratamiento[]>(API_URL);
+        const response = await api.get<Tratamiento[]>(API_URL);
         setTratamientos(response.data);
         toast.success("Tratamiento actualizado");
       } catch (err) {
@@ -85,7 +85,7 @@ export function useTratamientos() {
 
   const deleteTratamiento = useCallback(async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await api.delete(`${API_URL}/${id}`);
       setTratamientos((prev) => prev.filter((t) => t.id !== id));
       toast.success("Tratamiento eliminado");
     } catch (err) {
@@ -97,7 +97,7 @@ export function useTratamientos() {
 
   const fetchHistorialPrecios = useCallback(async (id: string) => {
     try {
-      const response = await axios.get<PrecioHistorial[]>(
+      const response = await api.get<PrecioHistorial[]>(
         `${API_URL}/${id}/historial-precios`
       );
       return response.data;

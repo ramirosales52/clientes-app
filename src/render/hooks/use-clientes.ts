@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { dataEvents, EVENTS } from "@render/lib/events";
+import { api } from "@render/lib/api";
 
 export interface Turno {
   id: string;
@@ -66,7 +66,7 @@ export interface ClienteStats {
   proximoTurno: Turno | null;
 }
 
-const API_URL = "http://localhost:3000/clientes";
+const API_URL = "/clientes";
 
 export function useClientes() {
   const [clientes, setClientes] = useState<ClienteConStats[]>([]);
@@ -79,7 +79,7 @@ export function useClientes() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(
+      const response = await api.get(
         `${API_URL}?page=${pageToFetch}&limit=20${search ? `&nombre=${search}` : ""}`
       );
 
@@ -107,7 +107,7 @@ export function useClientes() {
 
   const fetchCliente = useCallback(async (id: string): Promise<Cliente | null> => {
     try {
-      const response = await axios.get<Cliente>(`${API_URL}/${id}`);
+      const response = await api.get<Cliente>(`${API_URL}/${id}`);
       return response.data;
     } catch (err) {
       console.error("Error al cargar cliente:", err);
@@ -117,7 +117,7 @@ export function useClientes() {
 
   const createCliente = useCallback(async (data: CreateClienteData) => {
     try {
-      const response = await axios.post<Cliente>(API_URL, data);
+      const response = await api.post<Cliente>(API_URL, data);
       const clienteConStats: ClienteConStats = {
         ...response.data,
         cantTurnos: 0,
@@ -133,7 +133,7 @@ export function useClientes() {
 
   const updateCliente = useCallback(async (id: string, data: UpdateClienteData) => {
     try {
-      const response = await axios.patch<Cliente>(`${API_URL}/${id}`, data);
+      const response = await api.patch<Cliente>(`${API_URL}/${id}`, data);
       setClientes((prev) =>
         prev.map((c) =>
           c.id === id ? { ...response.data, cantTurnos: response.data.turnos.length } : c
@@ -149,7 +149,7 @@ export function useClientes() {
 
   const deleteCliente = useCallback(async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await api.delete(`${API_URL}/${id}`);
       setClientes((prev) => prev.filter((c) => c.id !== id));
       toast.success("Cliente eliminado");
     } catch (err) {

@@ -124,32 +124,24 @@ export class RespuestaHandlerService implements OnModuleInit {
   private async confirmarTurno(turno: Turno, telefono: string): Promise<void> {
     this.logger.log(`Confirmando turno ${turno.id} desde WhatsApp`);
 
-    await this.turnoService.update(turno.id, { estado: EstadoTurno.CONFIRMADO });
-    await this.recordatorioRepository.update(
-      { turnoId: turno.id, estado: EstadoRecordatorio.PROGRAMADO },
-      { estado: EstadoRecordatorio.CANCELADO },
-    );
+    const turnoActualizado = await this.turnoService.update(turno.id, { estado: EstadoTurno.CONFIRMADO });
 
     // Enviar mensaje de confirmación
     await this.whatsappService.sendMessage(
       telefono,
-      `Perfecto ${turno.cliente.nombre} 🙌\n\nTu turno para el ${new Date(turno.fechaInicio).toLocaleDateString('es-AR')} a las ${new Date(turno.fechaInicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} quedó confirmado.\n\nTe esperamos 😊`
+      `Perfecto ${turnoActualizado.cliente.nombre} 🙌\n\nTu turno para el ${new Date(turnoActualizado.fechaInicio).toLocaleDateString('es-AR')} a las ${new Date(turnoActualizado.fechaInicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} quedó confirmado.\n\nTe esperamos 😊`
     );
   }
 
   private async cancelarTurno(turno: Turno, telefono: string): Promise<void> {
     this.logger.log(`Cancelando turno ${turno.id} desde WhatsApp`);
 
-    await this.turnoService.update(turno.id, { estado: EstadoTurno.CANCELADO });
-    await this.recordatorioRepository.update(
-      { turnoId: turno.id, estado: EstadoRecordatorio.PROGRAMADO },
-      { estado: EstadoRecordatorio.CANCELADO },
-    );
+    const turnoActualizado = await this.turnoService.update(turno.id, { estado: EstadoTurno.CANCELADO });
 
     // Enviar mensaje de cancelación
     await this.whatsappService.sendMessage(
       telefono,
-      `Hola ${turno.cliente.nombre} 👋\n\nTu turno para el ${new Date(turno.fechaInicio).toLocaleDateString('es-AR')} a las ${new Date(turno.fechaInicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} fue cancelado.\n\nSi querés, podés agendar otro turno más adelante 😊`
+      `Hola ${turnoActualizado.cliente.nombre} 👋\n\nTu turno para el ${new Date(turnoActualizado.fechaInicio).toLocaleDateString('es-AR')} a las ${new Date(turnoActualizado.fechaInicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} fue cancelado.\n\nSi querés, podés agendar otro turno más adelante 😊`
     );
   }
 }

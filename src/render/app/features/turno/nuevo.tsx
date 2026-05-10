@@ -13,7 +13,7 @@ import { Separator } from "@render/components/ui/separator";
 import { Badge } from "@render/components/ui/badge";
 import { cn } from "@render/lib/utils";
 import { dataEvents, EVENTS } from "@render/lib/events";
-import axios from "axios";
+import { api } from "@render/lib/api";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import {
@@ -220,7 +220,7 @@ function NuevoTurno() {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await axios.get("http://localhost:3000/clientes", {
+        const response = await api.get("/clientes", {
           params: { page, limit: 100 },
         });
 
@@ -237,7 +237,7 @@ function NuevoTurno() {
 
   const fetchTratamientos = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:3000/tratamientos");
+      const response = await api.get("/tratamientos");
       setTratamientos(response.data);
     } catch (error) {
       console.error("Error fetching tratamientos:", error);
@@ -246,7 +246,7 @@ function NuevoTurno() {
 
   const fetchHorasOcupadas = useCallback(async (fechaSeleccionada: Date) => {
     try {
-      const res = await axios.get("http://localhost:3000/turnos/ocupados", {
+      const res = await api.get("/turnos/ocupados", {
         params: { fecha: dayjs(fechaSeleccionada).format("MM-DD-YYYY") },
       });
 
@@ -274,7 +274,7 @@ function NuevoTurno() {
 
   const fetchHorariosDia = useCallback(async (fechaSeleccionada: Date) => {
     try {
-      const res = await axios.get("http://localhost:3000/configuracion/horarios-para-fecha", {
+      const res = await api.get("/configuracion/horarios-para-fecha", {
         params: { fecha: dayjs(fechaSeleccionada).format("YYYY-MM-DD") },
       });
       // El backend devuelve "cerrado", convertimos a "abierto" para el frontend
@@ -307,7 +307,7 @@ function NuevoTurno() {
       // Cargar fechas cerradas: 1 mes antes y 2 meses después del mes visible
       const desde = dayjs(mesBase).subtract(1, "month").startOf("month").format("YYYY-MM-DD");
       const hasta = dayjs(mesBase).add(2, "month").endOf("month").format("YYYY-MM-DD");
-      const res = await axios.get("http://localhost:3000/configuracion/fechas-cerradas", {
+      const res = await api.get("/configuracion/fechas-cerradas", {
         params: { desde, hasta },
       });
       // Convertir strings a Date objects
@@ -395,7 +395,7 @@ function NuevoTurno() {
 
     try {
       setSubmitting(true);
-      await axios.post("http://localhost:3000/turnos", payload);
+      await api.post("/turnos", payload);
       toast.success("Turno agendado correctamente");
 
       form.reset({

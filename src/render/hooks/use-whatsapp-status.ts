@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "@render/lib/api";
 
 interface WhatsappStatus {
   authenticated: boolean;
@@ -17,9 +17,7 @@ export function useWhatsappStatus() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const response = await axios.get<WhatsappStatus>(
-        "http://localhost:3000/whatsapp/status"
-      );
+      const response = await api.get<WhatsappStatus>("/whatsapp/status");
       setStatus(response.data);
     } catch {
       setStatus({ authenticated: false, ready: false, connected: false });

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import dayjs from 'dayjs';
@@ -7,6 +7,7 @@ import { PlantillaMensaje } from './entities/plantilla-mensaje.entity';
 import { ConfiguracionRecordatorio } from './entities/configuracion-recordatorio.entity';
 import { Turno, EstadoTurno } from '../turnos/entities/turno.entity';
 import { WhatsappService } from './whatsapp.service';
+import { TurnoService } from '../turnos/turnos.service';
 
 @Injectable()
 export class RecordatorioService {
@@ -24,6 +25,9 @@ export class RecordatorioService {
     private turnoRepository: Repository<Turno>,
 
     private whatsappService: WhatsappService,
+
+    @Inject(forwardRef(() => TurnoService))
+    private turnoService: TurnoService,
   ) {}
 
   async getConfiguracion(): Promise<ConfiguracionRecordatorio> {
@@ -209,11 +213,11 @@ export class RecordatorioService {
 
   async crearRecordatorioPrevio(turno: Turno): Promise<Recordatorio | null> {
     const config = await this.getConfiguracion();
-    if (!config.recordatorioConfirmacionActivo) return null;
+    if (!config.recordatorioPrevioActivo) return null;
 
     const cliente = turno.cliente;
     const telefono = `549${cliente.codArea}${cliente.numero}`;
-    const fechaProgramada = dayjs(turno.fechaInicio).subtract(config.horasAntesConfirmacion, 'hour');
+    const fechaProgramada = dayjs(turno.fechaInicio).subtract(config.horasAntesPrevio, 'hour');
     if (!fechaProgramada.isAfter(dayjs())) return null;
 
     const mensaje = await this.renderizarMensaje(TipoRecordatorio.PREVIO, turno);
@@ -310,20 +314,12 @@ export class RecordatorioService {
 
       if (!turno || turno.estado !== EstadoTurno.PENDIENTE) continue;
 
-      turno.estado = EstadoTurno.SIN_CONFIRMAR;
-      await this.turnoRepository.save(turno);
-      await this.cancelarRecordatoriosPorTurno(turno.id);
+      await this.turnoService.update(turno.id, { estado: EstadoTurno.SIN_CONFIRMAR });
     }
   }
 
   async procesarRecordatoriosPendientes(): Promise<{ enviados: number; fallidos: number }> {
-    const config = await this.getConfiguracion();
     const ahora = dayjs();
-
-    const horaActual = ahora.hour();
-    if (horaActual < config.horaEnvioMinima || horaActual >= config.horaEnvioMaxima) {
-      return { enviados: 0, fallidos: 0 };
-    }
 
     const pendientes = await this.recordatorioRepository.find({
       where: {
@@ -436,7 +432,7 @@ export class RecordatorioService {
       case TipoRecordatorio.REINTENTO_2:
         return `Hola {nombre} 👋\n\nEste es el último recordatorio para tu turno del {fecha} a las {hora}.\n\nSi no confirmás, el turno puede ser cancelado automáticamente.\n\n👉 {tratamientos}\n\nRespondé:\n✅ CONFIRMAR\n❌ CANCELAR`;
       case TipoRecordatorio.PREVIO:
-        return `Hola {nombre} 👋\n\nTe recordamos que tu turno para {tratamientos} es en 1 hora ⏰\n\n¡Te esperamos! 😊`;
+        return `Hola {nombre} 👋\n\nTe recordamos que tu turno para {tratamientos} es en {hora} ⏰\n\n¡Te esperamos! 😊`;
       case TipoRecordatorio.MANUAL:
         return '';
       default:

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
+import { api } from "@render/lib/api";
 
 export type MetodoPago = 
   | "efectivo" 
@@ -70,7 +70,7 @@ export interface TurnoConDeuda {
   deuda: number;
 }
 
-const API_URL = "http://localhost:3000/pagos";
+const API_URL = "/pagos";
 
 export const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
   { value: "efectivo", label: "Efectivo" },
@@ -85,7 +85,7 @@ export function usePagos() {
 
   const getPagos = useCallback(async (): Promise<Pago[]> => {
     try {
-      const response = await axios.get<Pago[]>(API_URL);
+      const response = await api.get<Pago[]>(API_URL);
       return response.data;
     } catch (err) {
       console.error("Error al obtener pagos:", err);
@@ -97,7 +97,7 @@ export function usePagos() {
   const createPago = useCallback(async (data: CreatePagoData): Promise<Pago | null> => {
     try {
       setLoading(true);
-      const response = await axios.post<Pago>(API_URL, data);
+      const response = await api.post<Pago>(API_URL, data);
       toast.success("Pago registrado");
       return response.data;
     } catch (err: any) {
@@ -112,7 +112,7 @@ export function usePagos() {
 
   const getPagosByTurno = useCallback(async (turnoId: string): Promise<Pago[]> => {
     try {
-      const response = await axios.get<Pago[]>(`${API_URL}/turno/${turnoId}`);
+      const response = await api.get<Pago[]>(`${API_URL}/turno/${turnoId}`);
       return response.data;
     } catch (err) {
       console.error("Error al obtener pagos del turno:", err);
@@ -122,7 +122,7 @@ export function usePagos() {
 
   const getPagosByCliente = useCallback(async (clienteId: string): Promise<Pago[]> => {
     try {
-      const response = await axios.get<Pago[]>(`${API_URL}/cliente/${clienteId}`);
+      const response = await api.get<Pago[]>(`${API_URL}/cliente/${clienteId}`);
       return response.data;
     } catch (err) {
       console.error("Error al obtener pagos del cliente:", err);
@@ -132,7 +132,7 @@ export function usePagos() {
 
   const getDeudaCliente = useCallback(async (clienteId: string): Promise<{ deudaTotal: number; turnosConDeuda: number }> => {
     try {
-      const response = await axios.get<{ deudaTotal: number; turnosConDeuda: number }>(
+      const response = await api.get<{ deudaTotal: number; turnosConDeuda: number }>(
         `${API_URL}/cliente/${clienteId}/deuda`
       );
       return response.data;
@@ -144,7 +144,7 @@ export function usePagos() {
 
   const getTurnosConDeuda = useCallback(async (): Promise<TurnoConDeuda[]> => {
     try {
-      const response = await axios.get<TurnoConDeuda[]>(`${API_URL}/deudas/turnos`);
+      const response = await api.get<TurnoConDeuda[]>(`${API_URL}/deudas/turnos`);
       return response.data;
     } catch (err) {
       console.error("Error al obtener turnos con deuda:", err);
@@ -155,7 +155,7 @@ export function usePagos() {
 
   const deletePago = useCallback(async (id: string): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await api.delete(`${API_URL}/${id}`);
       toast.success("Pago eliminado");
       return true;
     } catch (err) {

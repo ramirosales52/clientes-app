@@ -7,11 +7,11 @@
 - [x] Corregir el selector de clientes al crear turnos para no depender solo de la primera pagina.
 - [x] Completar la edicion y reagendado de turnos en el backend.
 - [x] Permitir cambio real de tratamientos en `TurnoService.update()`.
-- [ ] Revalidar disponibilidad al editar fecha y hora de un turno.
+- [x] Revalidar disponibilidad al editar fecha y hora de un turno.
 - [x] Definir politica clara para recordatorios existentes cuando se reagenda un turno.
-- [ ] Revisar el flujo completo de recordatorios y confirmaciones.
-- [ ] Unificar quien cambia el estado del turno en el modulo de WhatsApp.
-- [ ] Revisar plantillas, triggers y reglas de envio de recordatorios.
+- [x] Revisar el flujo completo de recordatorios y confirmaciones.
+- [x] Unificar quien cambia el estado del turno en el modulo de WhatsApp.
+- [x] Revisar plantillas, triggers y reglas de envio de recordatorios.
 
 ## Prioridad alta
 

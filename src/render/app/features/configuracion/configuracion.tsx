@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@render/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@render/components/ui/card";
 import { Clock, Calendar, CalendarOff } from "lucide-react";
+import { api } from "@render/lib/api";
 import HorariosEditor from "./components/horarios-editor";
 import TemporadasList from "./components/temporadas-list";
 import DiasEspecialesList from "./components/dias-especiales-list";
@@ -52,9 +52,9 @@ function Configuracion() {
     try {
       setLoading(true);
       const [horariosRes, temporadasRes, diasRes] = await Promise.all([
-        axios.get<HorarioSemanal[]>("http://localhost:3000/configuracion/horarios"),
-        axios.get<Temporada[]>("http://localhost:3000/configuracion/temporadas"),
-        axios.get<DiaEspecial[]>("http://localhost:3000/configuracion/dias-especiales"),
+        api.get<HorarioSemanal[]>("/configuracion/horarios"),
+        api.get<Temporada[]>("/configuracion/temporadas"),
+        api.get<DiaEspecial[]>("/configuracion/dias-especiales"),
       ]);
       setHorarios(horariosRes.data);
       setTemporadas(temporadasRes.data);
@@ -73,7 +73,7 @@ function Configuracion() {
 
   const handleHorariosUpdate = async (data: HorarioSemanal[]) => {
     try {
-      const res = await axios.put<HorarioSemanal[]>("http://localhost:3000/configuracion/horarios", {
+      const res = await api.put<HorarioSemanal[]>("/configuracion/horarios", {
         horarios: data,
       });
       setHorarios(res.data);
