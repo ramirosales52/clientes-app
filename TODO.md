@@ -5,7 +5,7 @@
 - [x] Activar `ValidationPipe` global en Nest con `transform` y `whitelist`.
 - [x] Unificar estados de turno inconsistentes entre backend, hooks y UI.
 - [x] Corregir el selector de clientes al crear turnos para no depender solo de la primera pagina.
-- [ ] Completar la edicion y reagendado de turnos en el backend.
+- [x] Completar la edicion y reagendado de turnos en el backend.
 - [x] Permitir cambio real de tratamientos en `TurnoService.update()`.
 - [ ] Revalidar disponibilidad al editar fecha y hora de un turno.
 - [x] Definir politica clara para recordatorios existentes cuando se reagenda un turno.

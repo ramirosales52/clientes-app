@@ -21,6 +21,12 @@ dayjs.extend(isSameOrBefore);
 type Interval = { inicio: dayjs.Dayjs; fin: dayjs.Dayjs };
 export type DisponibilidadCard = { horaInicio: string; horaFin: string };
 
+const ESTADOS_OCUPAN_HORARIO = new Set<EstadoTurno>([
+  EstadoTurno.PENDIENTE,
+  EstadoTurno.CONFIRMADO,
+  EstadoTurno.SIN_CONFIRMAR,
+]);
+
 @Injectable()
 export class TurnoService {
   constructor(
@@ -94,6 +100,22 @@ export class TurnoService {
         estado: In(['pendiente', 'confirmado', 'sin_confirmar']),
       },
     });
+  }
+
+  private estadoOcupaHorario(estado: EstadoTurno): boolean {
+    return ESTADOS_OCUPAN_HORARIO.has(estado);
+  }
+
+  private async validarDisponibilidadTurno(
+    fechaInicio: Date,
+    fechaFin: Date,
+    excluirTurnoId: string,
+  ): Promise<void> {
+    const overlapping = await this.turnoSuperpuesto(fechaInicio, fechaFin, excluirTurnoId);
+
+    if (overlapping) {
+      throw new BadRequestException('El turno se superpone con otro ya existente');
+    }
   }
 
   private congelarTratamientosTurno(turno: Turno): Turno {
@@ -372,6 +394,7 @@ export class TurnoService {
     const estadoAnterior = turno.estado;
     const fechaInicioAnterior = turno.fechaInicio;
     const fechaFinAnterior = turno.fechaFin;
+    const clienteAnteriorId = turno.cliente.id;
     const tratamientosAnterioresIds = turno.tratamientos.map((tratamiento) => tratamiento.id);
 
     const fechaInicioNueva = dto.fechaInicio ? new Date(dto.fechaInicio) : turno.fechaInicio;
@@ -379,16 +402,18 @@ export class TurnoService {
     const fechaCambiada =
       fechaInicioNueva.getTime() !== fechaInicioAnterior.getTime() ||
       fechaFinNueva.getTime() !== fechaFinAnterior.getTime();
+    const clienteCambiado = dto.clienteId ? dto.clienteId !== clienteAnteriorId : false;
     const tratamientosCambiados =
       Array.isArray(dto.tratamientosIds) &&
       (dto.tratamientosIds.length !== tratamientosAnterioresIds.length ||
         dto.tratamientosIds.some((id, index) => id !== tratamientosAnterioresIds[index]));
+    const estadoNuevo = dto.estado ?? estadoAnterior;
+    const requiereValidarDisponibilidad =
+      this.estadoOcupaHorario(estadoNuevo) &&
+      (fechaCambiada || !this.estadoOcupaHorario(estadoAnterior));
 
-    if (fechaCambiada) {
-      const overlapping = await this.turnoSuperpuesto(fechaInicioNueva, fechaFinNueva, id);
-      if (overlapping) {
-        throw new BadRequestException('El turno se superpone con otro ya existente');
-      }
+    if (requiereValidarDisponibilidad) {
+      await this.validarDisponibilidadTurno(fechaInicioNueva, fechaFinNueva, id);
     }
 
     if (dto.clienteId) {
@@ -416,7 +441,7 @@ export class TurnoService {
       turno.tratamientos = tratamientos;
     }
 
-    if (fechaCambiada || tratamientosCambiados) {
+    if (fechaCambiada || tratamientosCambiados || clienteCambiado) {
       turno.tratamientosSnapshot = turno.tratamientos.map((tratamiento) => ({
         id: tratamiento.id,
         nombre: tratamiento.nombre,
@@ -429,38 +454,23 @@ export class TurnoService {
     await this.turnoRepository.save(turno);
 
     const turnoCompleto = await this.findOne(id);
+    const estadoCambiado = dto.estado !== undefined && dto.estado !== estadoAnterior;
+    const requiereSincronizarRecordatorios = estadoCambiado || fechaCambiada || tratamientosCambiados || clienteCambiado;
 
-    if (fechaCambiada || tratamientosCambiados) {
+    // Registrar cambio de estado si cambió
+    if (estadoCambiado) {
+      await this.registrarCambioEstado(turno, estadoAnterior, dto.estado!);
+    }
+
+    if (requiereSincronizarRecordatorios) {
       await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
 
       if (turnoCompleto.estado === EstadoTurno.CONFIRMADO) {
         await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
-      } else if (turnoCompleto.estado === EstadoTurno.PENDIENTE || turnoCompleto.estado === EstadoTurno.SIN_CONFIRMAR) {
+      } else if (this.estadoOcupaHorario(turnoCompleto.estado)) {
         await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
       }
-    }
-
-    // Registrar cambio de estado si cambió
-    if (dto.estado && dto.estado !== estadoAnterior) {
-      await this.registrarCambioEstado(turno, estadoAnterior, dto.estado);
-
-      // Si se cancela el turno, cancelar recordatorios pendientes
-      if (dto.estado === EstadoTurno.CANCELADO) {
-        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
-      }
-
-      // Si se confirma el turno, crear el recordatorio previo (1h antes)
-      if (dto.estado === EstadoTurno.CONFIRMADO) {
-        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
-        await this.recordatorioService.crearRecordatorioPrevio(turnoCompleto);
-      }
-
-      if (dto.estado === EstadoTurno.SIN_CONFIRMAR) {
-        await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
-      }
-    }
-
-    if (!dto.estado && !fechaCambiada && !tratamientosCambiados) {
+    } else if (!estadoCambiado) {
       await this.recordatorioService.cancelarRecordatoriosPorTurno(id);
       await this.recordatorioService.crearRecordatoriosParaTurno(turnoCompleto);
     }
