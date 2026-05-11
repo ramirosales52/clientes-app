@@ -1,4 +1,5 @@
 import { Cliente } from "../clientes/entities/cliente.entity";
+import { ClienteNota } from "../clientes/entities/cliente-nota.entity";
 import { Pago } from "../pagos/entities/pago.entity";
 import { PrecioHistorial } from "../tratamientos/entities/precio-historial.entity";
 import { Tratamiento } from "../tratamientos/entities/tratamiento.entity";
@@ -15,6 +16,7 @@ import { DiaEspecial } from "../configuracion/entities/dia-especial.entity";
 
 export const entities = [
   Cliente,
+  ClienteNota,
   Turno,
   Tratamiento,
   PrecioHistorial,

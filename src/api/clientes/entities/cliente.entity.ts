@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Turno } from '../../turnos/entities/turno.entity';
+import { ClienteNota } from './cliente-nota.entity';
 import {
   IsString,
   IsNotEmpty,
@@ -17,40 +18,43 @@ import {
 @Entity()
 export class Cliente {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
   @IsString()
   @IsNotEmpty()
-  nombre: string;
+  nombre!: string;
 
   @Column()
   @IsString()
   @IsNotEmpty()
-  apellido: string;
+  apellido!: string;
 
   @Column()
   @IsString()
   @Matches(/^\d{2,5}$/, { message: 'Código de área inválido' })
-  codArea: string;
+  codArea!: string;
 
   @Column()
   @IsString()
   @Matches(/^\d{6,8}$/, { message: 'Número inválido' })
-  numero: string;
+  numero!: string;
 
   @Column({ nullable: true })
   @IsOptional()
   @IsString()
   notas?: string;
 
+  @OneToMany(() => ClienteNota, (nota) => nota.cliente)
+  notasCliente!: ClienteNota[];
+
   @OneToMany(() => Turno, (turno) => turno.cliente)
-  turnos: Turno[];
+  turnos!: Turno[];
 
   @CreateDateColumn()
-  creadoEn: Date;
+  creadoEn!: Date;
 
   @UpdateDateColumn()
-  actualizadoEn: Date;
+  actualizadoEn!: Date;
 }
 

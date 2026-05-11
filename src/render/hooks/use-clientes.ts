@@ -33,6 +33,14 @@ export interface Cliente {
   numero: string;
   notas?: string;
   turnos: Turno[];
+  notasCliente: ClienteNota[];
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export interface ClienteNota {
+  id: string;
+  contenido: string;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -55,6 +63,14 @@ export interface UpdateClienteData {
   codArea?: string;
   numero?: string;
   notas?: string;
+}
+
+export interface CreateClienteNotaData {
+  contenido: string;
+}
+
+export interface UpdateClienteNotaData {
+  contenido: string;
 }
 
 export interface ClienteStats {
@@ -158,6 +174,24 @@ export function useClientes() {
     }
   }, []);
 
+  const createClienteNota = useCallback(async (clienteId: string, data: CreateClienteNotaData) => {
+    const response = await api.post<ClienteNota>(`${API_URL}/${clienteId}/notas`, data);
+    return response.data;
+  }, []);
+
+  const updateClienteNota = useCallback(async (
+    clienteId: string,
+    notaId: string,
+    data: UpdateClienteNotaData,
+  ) => {
+    const response = await api.patch<ClienteNota>(`${API_URL}/${clienteId}/notas/${notaId}`, data);
+    return response.data;
+  }, []);
+
+  const deleteClienteNota = useCallback(async (clienteId: string, notaId: string) => {
+    await api.delete(`${API_URL}/${clienteId}/notas/${notaId}`);
+  }, []);
+
   const calcularStats = useCallback((cliente: Cliente): ClienteStats => {
     const ahora = new Date();
     const turnosOrdenados = [...cliente.turnos].sort(
@@ -232,6 +266,9 @@ export function useClientes() {
     createCliente,
     updateCliente,
     deleteCliente,
+    createClienteNota,
+    updateClienteNota,
+    deleteClienteNota,
     calcularStats,
   };
 }

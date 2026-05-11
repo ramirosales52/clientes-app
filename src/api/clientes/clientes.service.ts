@@ -2,8 +2,11 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
+import { ClienteNota } from './entities/cliente-nota.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
+import { CreateClienteNotaDto } from './dto/create-cliente-nota.dto';
+import { UpdateClienteNotaDto } from './dto/update-cliente-nota.dto';
 import parsePhoneNumberFromString from 'libphonenumber-js';
 import { calcularCostoHistoricoTurno } from '../tratamientos/costo-historico';
 
@@ -20,6 +23,8 @@ export class ClienteService {
   constructor(
     @InjectRepository(Cliente)
     private clienteRepository: Repository<Cliente>,
+    @InjectRepository(ClienteNota)
+    private clienteNotaRepository: Repository<ClienteNota>,
   ) { }
 
   private async asegurarCostoTotalTurno(turno: Cliente['turnos'][number]) {
@@ -47,12 +52,15 @@ export class ClienteService {
   findAll(): Promise<Cliente[]> {
     return this.clienteRepository
       .find({
-        relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados'],
+        relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados', 'notasCliente'],
       })
       .then(async (clientes) =>
         Promise.all(
           clientes.map(async (cliente) => ({
             ...cliente,
+            notasCliente: [...(cliente.notasCliente || [])].sort(
+              (a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime(),
+            ),
             turnos: await Promise.all(cliente.turnos.map((turno) => this.asegurarCostoTotalTurno(turno))),
           })),
         ),
@@ -62,11 +70,14 @@ export class ClienteService {
   async findOne(id: string): Promise<Cliente> {
     const cliente = await this.clienteRepository.findOne({
       where: { id },
-      relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados'],
+      relations: ['turnos', 'turnos.tratamientos', 'turnos.tratamientos.historialPrecios', 'turnos.pagos', 'turnos.historialEstados', 'notasCliente'],
     });
     if (!cliente) throw new NotFoundException('Cliente no encontrado');
     return {
       ...cliente,
+      notasCliente: [...(cliente.notasCliente || [])].sort(
+        (a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime(),
+      ),
       turnos: await Promise.all(cliente.turnos.map((turno) => this.asegurarCostoTotalTurno(turno))),
     };
   }
@@ -104,6 +115,52 @@ export class ClienteService {
   async remove(id: string): Promise<void> {
     const result = await this.clienteRepository.delete(id);
     if (!result.affected) throw new NotFoundException('Cliente no encontrado');
+  }
+
+  async createNota(clienteId: string, dto: CreateClienteNotaDto): Promise<ClienteNota> {
+    const cliente = await this.clienteRepository.findOneBy({ id: clienteId });
+    if (!cliente) throw new NotFoundException('Cliente no encontrado');
+
+    const nota = this.clienteNotaRepository.create({
+      contenido: dto.contenido.trim(),
+      cliente,
+    });
+
+    return this.clienteNotaRepository.save(nota);
+  }
+
+  async updateNota(
+    clienteId: string,
+    notaId: string,
+    dto: UpdateClienteNotaDto,
+  ): Promise<ClienteNota> {
+    const nota = await this.clienteNotaRepository.findOne({
+      where: { id: notaId },
+      relations: ['cliente'],
+    });
+
+    if (!nota || nota.cliente.id !== clienteId) {
+      throw new NotFoundException('Nota no encontrada');
+    }
+
+    if (dto.contenido !== undefined) {
+      nota.contenido = dto.contenido.trim();
+    }
+
+    return this.clienteNotaRepository.save(nota);
+  }
+
+  async removeNota(clienteId: string, notaId: string): Promise<void> {
+    const nota = await this.clienteNotaRepository.findOne({
+      where: { id: notaId },
+      relations: ['cliente'],
+    });
+
+    if (!nota || nota.cliente.id !== clienteId) {
+      throw new NotFoundException('Nota no encontrada');
+    }
+
+    await this.clienteNotaRepository.delete(notaId);
   }
 }
 

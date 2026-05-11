@@ -11,6 +11,8 @@ import {
 import { ClienteService } from './clientes.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
+import { CreateClienteNotaDto } from './dto/create-cliente-nota.dto';
+import { UpdateClienteNotaDto } from './dto/update-cliente-nota.dto';
 
 @Controller('clientes')
 export class ClienteController {
@@ -47,6 +49,25 @@ export class ClienteController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.clienteService.remove(id);
+  }
+
+  @Post(':id/notas')
+  createNota(@Param('id') id: string, @Body() dto: CreateClienteNotaDto) {
+    return this.clienteService.createNota(id, dto);
+  }
+
+  @Patch(':id/notas/:notaId')
+  updateNota(
+    @Param('id') id: string,
+    @Param('notaId') notaId: string,
+    @Body() dto: UpdateClienteNotaDto,
+  ) {
+    return this.clienteService.updateNota(id, notaId, dto);
+  }
+
+  @Delete(':id/notas/:notaId')
+  removeNota(@Param('id') id: string, @Param('notaId') notaId: string) {
+    return this.clienteService.removeNota(id, notaId);
   }
 }
 
